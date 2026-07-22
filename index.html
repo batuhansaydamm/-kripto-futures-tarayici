@@ -565,7 +565,7 @@
       <div class="tape-wrap"><div class="tape" id="tape"></div></div>
       <header class="header">
         <div class="eyebrow">
-          V10 · Tactical Invalidation + Effort/Result + MLOFI Proxy
+          V10 · Calibrated Exits + Tactical Invalidation + Honest Evidence
         </div>
         <div class="title-row">
           <div>
@@ -650,10 +650,10 @@
       </section>
       <footer class="footer">
         Yatırım tavsiyesi değildir. Binance Futures herkese açık piyasa
-        verilerinden kural tabanlı analiz üretir. Defter katmanı birkaç REST
-        snapshot'ından üretilen kısa ömürlü bir MLOFI vekilidir; gerçek
-        tick/event order flow değildir. Kaldıraç kazancı ve zararı büyütür;
-        yalnız kaybı karşılanabilir risk sermayesi kullan.
+        verilerinden kural tabanlı analiz üretir. Tek REST order-book snapshot'ı
+        yalnız spread/likidite bağlamıdır ve skora katılmaz; gerçek tick/event
+        order flow değildir. Kaldıraç kazancı ve zararı büyütür; yalnız kaybı
+        karşılanabilir risk sermayesi kullan.
       </footer>
     </main>
     <script>
@@ -716,8 +716,19 @@
         renderPosition(d.position);
       };
       const API = "https://fapi.binance.com";
-      const get = async (path) => {
+      const get = async (path, attempt = 0) => {
         const r = await fetch(API + path);
+        if (
+          (r.status === 429 || r.status === 418 || r.status >= 500) &&
+          attempt < 3
+        ) {
+          const retryAfter = Number(r.headers.get("Retry-After")) || 0;
+          await pause(
+            Math.max(retryAfter * 1000, 700 * 2 ** attempt) +
+              Math.random() * 250,
+          );
+          return get(path, attempt + 1);
+        }
         if (!r.ok) {
           let m = "";
           try {
@@ -916,22 +927,28 @@
         const transitions = [];
         const raw = Array.isArray(series) ? series : [series];
         for (let i = 1; i < raw.length; i++) {
-          const prev = raw[i - 1], now = raw[i];
+          const prev = raw[i - 1],
+            now = raw[i];
           if (!prev?.bids || !prev?.asks || !now?.bids || !now?.asks) continue;
-          let bidChange = 0, askChange = 0, depth = 0;
+          let bidChange = 0,
+            askChange = 0,
+            depth = 0;
           for (let level = 0; level < 10; level++) {
-            const weight = 1 / (level + 1), pb = +(prev.bids[level]?.[1] || 0),
-              nb = +(now.bids[level]?.[1] || 0), pa = +(prev.asks[level]?.[1] || 0),
+            const weight = 1 / (level + 1),
+              pb = +(prev.bids[level]?.[1] || 0),
+              nb = +(now.bids[level]?.[1] || 0),
+              pa = +(prev.asks[level]?.[1] || 0),
               na = +(now.asks[level]?.[1] || 0);
             bidChange += weight * (nb - pb);
             askChange += weight * (na - pa);
-            depth += weight * (pb + nb + pa + na) / 2;
+            depth += (weight * (pb + nb + pa + na)) / 2;
           }
           if (depth) transitions.push((bidChange - askChange) / depth);
         }
         const mlofi = transitions.length ? avg(transitions) : 0,
           persistence = transitions.length
-            ? transitions.filter((x) => Math.sign(x) === Math.sign(mlofi)).length / transitions.length
+            ? transitions.filter((x) => Math.sign(x) === Math.sign(mlofi))
+                .length / transitions.length
             : 0;
         return {
           valid: true,
@@ -945,19 +962,83 @@
       }
       function tacticalSwing(rows, side, atr, entry) {
         const x = rows.filter((r) => +r[6] < Date.now()).slice(-14);
-        const lows = [], highs = [];
+        const lows = [],
+          highs = [];
         for (let i = 2; i < x.length - 2; i++) {
-          const lo = +x[i][3], hi = +x[i][2];
-          if (lo <= +x[i-1][3] && lo <= +x[i-2][3] && lo <= +x[i+1][3] && lo <= +x[i+2][3]) lows.push(lo);
-          if (hi >= +x[i-1][2] && hi >= +x[i-2][2] && hi >= +x[i+1][2] && hi >= +x[i+2][2]) highs.push(hi);
+          const lo = +x[i][3],
+            hi = +x[i][2];
+          if (
+            lo <= +x[i - 1][3] &&
+            lo <= +x[i - 2][3] &&
+            lo <= +x[i + 1][3] &&
+            lo <= +x[i + 2][3]
+          )
+            lows.push(lo);
+          if (
+            hi >= +x[i - 1][2] &&
+            hi >= +x[i - 2][2] &&
+            hi >= +x[i + 1][2] &&
+            hi >= +x[i + 2][2]
+          )
+            highs.push(hi);
         }
-        const fallback = side > 0
-          ? Math.min(...x.slice(-6).map((r) => +r[3]))
-          : Math.max(...x.slice(-6).map((r) => +r[2]));
-        const pivot = side > 0
-          ? (lows.filter((v) => v < entry).at(-1) || fallback)
-          : (highs.filter((v) => v > entry).at(-1) || fallback);
+        const fallback =
+          side > 0
+            ? Math.min(...x.slice(-6).map((r) => +r[3]))
+            : Math.max(...x.slice(-6).map((r) => +r[2]));
+        const pivot =
+          side > 0
+            ? lows.filter((v) => v < entry).at(-1) || fallback
+            : highs.filter((v) => v > entry).at(-1) || fallback;
         return side > 0 ? pivot - atr * 0.12 : pivot + atr * 0.12;
+      }
+      function calibratedTargets(model, rows, side, entry, risk) {
+        const rates = model?.reachRates || {},
+          n = model?.samples || 0,
+          levels = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5],
+          choose = (minimumRate, fallback) =>
+            n >= 20
+              ? levels.filter((r) => (rates[r] || 0) >= minimumRate).at(-1) ||
+                fallback
+              : fallback;
+        let safeR = Math.max(0.5, Math.min(1, choose(65, 0.75))),
+          mainR = Math.max(safeR, Math.min(1.5, choose(45, 1))),
+          runnerR = Math.max(mainR, Math.min(2.5, choose(25, 1.5)));
+        const closed = rows.filter((r) => +r[6] < Date.now()).slice(-48),
+          candidates =
+            side > 0
+              ? closed
+                  .map((r) => +r[2])
+                  .filter((v) => v > entry + risk * 0.3)
+                  .sort((a, b) => a - b)
+              : closed
+                  .map((r) => +r[3])
+                  .filter((v) => v < entry - risk * 0.3)
+                  .sort((a, b) => b - a),
+          barrier = candidates[0] || 0,
+          barrierR = barrier ? (side * (barrier - entry)) / risk : 0;
+        if (barrierR >= 0.35 && barrierR < mainR)
+          mainR = Math.max(0.35, barrierR * 0.92);
+        safeR = Math.min(safeR, mainR);
+        runnerR = Math.max(mainR + 0.25, runnerR);
+        const price = (r) => entry + side * risk * r;
+        return {
+          safeR,
+          mainR,
+          runnerR,
+          tp1: price(safeR),
+          tp2: price(mainR),
+          runner: price(runnerR),
+          safeReach:
+            n >= 20 ? (rates[String(safeR)] ?? rates[safeR] ?? null) : null,
+          mainReach:
+            n >= 20 ? (rates[String(mainR)] ?? rates[mainR] ?? null) : null,
+          runnerReach:
+            n >= 20 ? (rates[String(runnerR)] ?? rates[runnerR] ?? null) : null,
+          samples: n,
+          barrier,
+          winnerMae80: model?.winnerMae80 || 0,
+        };
       }
       function volumeHorizon(side, a, b, c, flow, oi15, tp1, entry) {
         const vals = Array.isArray(oi15) ? oi15 : [],
@@ -1048,12 +1129,7 @@
       }
       const pause = (ms) => new Promise((r) => setTimeout(r, ms));
       async function depthSeries(q) {
-        const out = [];
-        for (let i = 0; i < 3; i++) {
-          out.push(await get(`/fapi/v1/depth?symbol=${q}&limit=50`));
-          if (i < 2) await pause(450);
-        }
-        return out;
+        return [await get(`/fapi/v1/depth?symbol=${q}&limit=50`)];
       }
       const MEMKEY = "batuhan_trade_memory_v4";
       function loadMemory() {
@@ -1088,7 +1164,7 @@
           100
         );
       }
-      function walkForwardTest(k15, k1, k4, btc1, btc4, symbol) {
+      function historicalRuleTest(k15, k1, k4, btc1, btc4, symbol) {
         const a = k15.filter((x) => +x[6] < Date.now()),
           h1 = k1.filter((x) => +x[6] < Date.now()),
           h4 = k4.filter((x) => +x[6] < Date.now()),
@@ -1150,13 +1226,14 @@
             entry = m15.close - side * maxGap;
           if (setup === "TEYİTLİ RETEST")
             entry = m15.close - side * Math.min(m15.atr * 0.35, maxGap);
-          const struct =
-              side > 0
-                ? Math.min(m1.low20, m15.prevLow)
-                : Math.max(m1.high20, m15.prevHigh),
-            stop = side > 0 ? struct - m15.atr * 0.15 : struct + m15.atr * 0.15,
+          const stop = tacticalSwing(wa, side, m15.atr, entry),
             risk = Math.abs(entry - stop);
-          if (!risk || risk / entry > 0.06) {
+          if (
+            !risk ||
+            risk / entry > 0.08 ||
+            risk / m15.atr > 2.75 ||
+            (side > 0 ? stop >= entry : stop <= entry)
+          ) {
             i++;
             continue;
           }
@@ -1243,6 +1320,28 @@
             { n: v.n, exp: +(v.r / v.n).toFixed(2) },
           ]),
         );
+        const reachLevels = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5],
+          reachRates = Object.fromEntries(
+            reachLevels.map((r) => [
+              r,
+              samples
+                ? +(
+                    (trades.filter((x) => x.mfe >= r).length / samples) *
+                    100
+                  ).toFixed(1)
+                : 0,
+            ]),
+          ),
+          reachedOne = trades.filter((x) => x.mfe >= 1),
+          sortedMae = reachedOne.map((x) => x.mae).sort((a, b) => a - b),
+          winnerMae80 = sortedMae.length
+            ? sortedMae[
+                Math.min(
+                  sortedMae.length - 1,
+                  Math.floor(sortedMae.length * 0.8),
+                )
+              ]
+            : 0;
         const model = {
           samples,
           wins,
@@ -1253,6 +1352,9 @@
           wilson: +wilson(wins, samples).toFixed(1),
           maxDD: +dd.toFixed(2),
           setupStats,
+          reachRates,
+          winnerMae80: +winnerMae80.toFixed(2),
+          testType: "KRONOLOJİK SABİT-KURAL TESTİ",
           testedAt: Date.now(),
         };
         const mem = loadMemory();
@@ -1418,7 +1520,7 @@
           features = Object.entries(model.featureStats || {})
             .map(
               ([k, v]) =>
-                `${k}: n${v.n} / isabet %${v.hitRate} / ${v.forwardR}R`,
+                `${k} yön ilişkisi: n${v.n} / aynı yön %${v.hitRate} / ${v.forwardR} ATR`,
             )
             .join(" · ");
         return {
@@ -1436,8 +1538,8 @@
           lastSignals: [features, setups, last].filter(Boolean).join(" | "),
           note:
             model.samples < 30
-              ? "Örnek az: Wilson güven alt sınırı nedeniyle sinyale güçlü ağırlık verilmedi."
-              : "Sanal günlük entry dolumunu, TP1’i, TP2/stopu ve zaman aşımını izler; kullanıcının gerçek emrini izlemez.",
+              ? "KRONOLOJİK SABİT-KURAL TESTİ · Örnek az. Bu gerçek walk-forward optimizasyon değildir. Kayıt yalnız bu cihaz/tarayıcıdadır."
+              : "KRONOLOJİK SABİT-KURAL TESTİ · Gerçek WFO/hold-out değildir. Sanal günlük gerçek emri izlemez; kayıt yalnız bu cihaz/tarayıcıdadır.",
         };
       }
       function readPosition() {
@@ -1575,7 +1677,7 @@
           : "";
         root.insertAdjacentHTML(
           "afterbegin",
-          `<div class="manage-card"><div class="manage-decision">DENEYSEL POZİSYON PLANI: ${esc(p.decision)}</div><div class="manage-stats">Brüt ROI: ${p.grossPnl}% · Tahmini net ROI: ${p.netPnl}% · Peak: ${p.peak}% · ${p.r}R · ${p.hours} saat${esc(sizing)}</div><div class="manage-why">${esc(p.why)}</div><div class="manage-plan">${esc(p.plan)}</div><div class="experimental">Ücret/funding tahminidir. Bu yönetim eşikleri henüz ayrı bir geçmiş pozisyon backtestiyle doğrulanmadı.</div></div>`,
+          `<div class="manage-card"><div class="manage-decision">DENEYSEL POZİSYON PLANI: ${esc(p.decision)}</div><div class="manage-stats">Brüt ROI: ${p.grossPnl}% · Tahmini net ROI: ${p.netPnl}% · Peak: ${p.peak}% · ${p.r}R · ${p.hours} saat${esc(sizing)}</div><div class="manage-why">${esc(p.why)}</div><div class="manage-plan">${esc(p.plan)}</div><div class="experimental">Funding hesabı mevcut oranın değişmeden kaldığı varsayımıdır; gerçek oran değişebilir. Yönetim eşikleri ayrı bir geçmiş pozisyon backtestiyle doğrulanmadı.</div></div>`,
         );
       }
       function analyze(
@@ -1592,6 +1694,7 @@
         takerRatio,
         oi15,
         depth,
+        model,
       ) {
         const a = metrics(k15),
           b = metrics(k1),
@@ -1743,23 +1846,36 @@
           reasons.push("Hacim katılımı zayıf; kırılım teyidi eksik");
         }
         const effortBody = a.range ? Math.abs(a.close - a.open) / a.range : 0,
-          effortNoResult = a.volRatio >= 2 && (effortBody < 0.3 || Math.max(a.upper, a.lower) > a.range * 0.45),
+          effortNoResult =
+            a.volRatio >= 2 &&
+            (effortBody < 0.3 || Math.max(a.upper, a.lower) > a.range * 0.45),
           klineFlow = a.takerDelta4;
         if (effortNoResult) {
           score -= Math.sign(score || t15) * 1.5;
-          reasons.push("Wyckoff effort/result: yüksek hacim var fakat fiyat ilerlemesi zayıf");
+          reasons.push(
+            "Wyckoff effort/result: yüksek hacim var fakat fiyat ilerlemesi zayıf",
+          );
         } else if (a.volRatio >= 1.4 && effortBody > 0.55) {
           const effortSide = Math.sign(a.close - a.open);
           score += effortSide;
-          reasons.push(`Effort/result uyumlu: hacimli ${effortSide > 0 ? "yukarı" : "aşağı"} displacement`);
+          reasons.push(
+            `Effort/result uyumlu: hacimli ${effortSide > 0 ? "yukarı" : "aşağı"} displacement`,
+          );
         }
         if (Math.abs(klineFlow) >= 0.28) {
           score += Math.sign(klineFlow);
-          reasons.push(`Binance mum taker-delta vekili ${(klineFlow * 100).toFixed(0)}%`);
+          reasons.push(
+            `Binance mum taker-delta vekili ${(klineFlow * 100).toFixed(0)}%`,
+          );
         }
-        if (book.valid && book.persistence >= 1 && Math.abs(book.mlofi) > 0.015) {
-          score += Math.sign(book.mlofi) * 0.75;
-          reasons.push(`Snapshot MLOFI vekili ${book.mlofi > 0 ? "bid" : "ask"} yönünde; yalnız kısa vadeli teyit`);
+        if (
+          book.valid &&
+          book.persistence >= 1 &&
+          Math.abs(book.mlofi) > 0.015
+        ) {
+          reasons.push(
+            `Defter değişimi ${book.mlofi > 0 ? "bid" : "ask"} yönünde; tek snapshot olduğu için skora katılmadı`,
+          );
         }
         const atrPct = (b.atr / b.close) * 100,
           quoteVolume = +ticker.quoteVolume || 0,
@@ -1774,7 +1890,12 @@
                 : !t4 && !t1
                   ? "RANGE"
                   : "GEÇİŞ";
-        const signalTier = Math.abs(score) >= 6 ? "GÜÇLÜ" : Math.abs(score) >= 4 ? "STARTER / TEYİTLİ" : "YOK";
+        const signalTier =
+          Math.abs(score) >= 6
+            ? "GÜÇLÜ"
+            : Math.abs(score) >= 4
+              ? "STARTER / TEYİTLİ"
+              : "YOK";
         let bias = score >= 4 ? "LONG" : score <= -4 ? "SHORT" : "NO_TRADE",
           side = bias === "LONG" ? 1 : bias === "SHORT" ? -1 : 0,
           dist = Math.abs(price - a.ema7) / a.atr,
@@ -1838,11 +1959,15 @@
         }
         if (side && signalTier === "STARTER / TEYİTLİ") {
           action = `🟡 ${action.replace(/^[^ ]+ /, "")} · yalnız %25–35 starter; kalan için 15D teyit`;
-          reasons.push("Orta kalite sinyal: fırsat saklanmadı, boyut ve teyit ile sınırlandı");
+          reasons.push(
+            "Orta kalite sinyal: fırsat saklanmadı, boyut ve teyit ile sınırlandı",
+          );
         }
         if (side && liquidityThin) {
           action += " · ince likidite: boyutu küçült";
-          reasons.push("24s hacim 1–3M USDT; kayma riski nedeniyle yalnız küçük boyut");
+          reasons.push(
+            "24s hacim 1–3M USDT; kayma riski nedeniyle yalnız küçük boyut",
+          );
         }
         let struct =
             side > 0
@@ -1857,8 +1982,9 @@
             : 0,
           stop = side ? tacticalSwing(k15, side, a.atr, e) : 0,
           r = Math.abs(e - stop),
-          tp1 = side ? e + side * r * 1.5 : 0,
-          tp2 = side ? e + side * r * 2.5 : 0,
+          targets = side ? calibratedTargets(model, k15, side, e, r) : null,
+          tp1 = targets?.tp1 || 0,
+          tp2 = targets?.tp2 || 0,
           horizon = volumeHorizon(
             side || volumeSide,
             a,
@@ -1869,7 +1995,12 @@
             tp1,
             e,
           ),
-          stopTooFar = !!(side && (r / a.atr > 2.75 || r / e > 0.08 || (side > 0 ? stop >= e : stop <= e)));
+          stopTooFar = !!(
+            side &&
+            (r / a.atr > 2.75 ||
+              r / e > 0.08 ||
+              (side > 0 ? stop >= e : stop <= e))
+          );
         if (side && horizon.tradeType === "SCALP")
           action += ` · ${horizon.managementMode}`;
         if (stopTooFar) {
@@ -1883,7 +2014,14 @@
           entry = trigger = deepEntry = entryDistance = "—";
           stop = tp1 = tp2 = 0;
         }
-        if (side) reasons.push(`Taktik stop ${fmt(stop)}; daha geniş yapısal iptal ${fmt(structuralStop)}`);
+        if (side)
+          reasons.push(
+            `Taktik stop ${fmt(stop)}; daha geniş yapısal iptal ${fmt(structuralStop)}`,
+          );
+        if (side && targets)
+          reasons.push(
+            `Kalibre hedef: TP1 ${targets.safeR.toFixed(2)}R · TP2 ${targets.mainR.toFixed(2)}R · runner ${fmt(targets.runner)} (${targets.runnerR.toFixed(2)}R)`,
+          );
         const crowded =
             (side > 0 && funding > 0.05) || (side < 0 && funding < -0.05),
           risk =
@@ -1934,13 +2072,19 @@
           structuralStop: structuralStop ? fmt(structuralStop) : "—",
           tp1: tp1 ? fmt(tp1) : "—",
           tp2: tp2 ? fmt(tp2) : "—",
-          rr: side ? "1:2.5" : "—",
+          rr:
+            side && targets
+              ? `TP1 1:${targets.safeR.toFixed(2)} · TP2 1:${targets.mainR.toFixed(2)}`
+              : "—",
           volumeRegime: horizon.volumeRegime,
           moveQuality: horizon.moveQuality,
           tradeType: horizon.tradeType,
           targetEta: side ? horizon.targetEta : "—",
           setupLife: side ? horizon.setupLife : "—",
-          managementMode: horizon.managementMode,
+          managementMode:
+            side && targets
+              ? `%30 TP1 · %30 TP2 · %40 runner/trailing`
+              : horizon.managementMode,
           reasons: reasons.slice(0, 11),
           caution: side
             ? "Taktik stop yerel 15D swing içindir; yapısal iptal daha geniş bağlamdır. Süre tahmini kesin değildir. Kaldıraç sinyal gücü değildir; zarar da büyür. Kaybı karşılanabilir risk sermayesi kullan."
@@ -2008,7 +2152,7 @@
               "order book",
             ].filter((_, i) => optional[i].status === "rejected");
           resolveSignals(symbol, k15);
-          const model = walkForwardTest(k15, k1, k4, btc1, btc4, symbol);
+          const model = historicalRuleTest(k15, k1, k4, btc1, btc4, symbol);
           model.featureStats = featureBacktest(k15, takerRatio);
           const saved = loadMemory();
           saved.models[symbol] = model;
@@ -2027,6 +2171,7 @@
               takerRatio,
               oi15,
               depth,
+              model,
             ),
             ss = model.setupStats?.[d.setup];
           if (missing.length)
@@ -2039,21 +2184,24 @@
               model.profitFactor > 1.15 &&
               model.wilson >= 25
             ) {
-              d.confidence = Math.min(9, d.confidence + 1);
               d.reasons.push(
-                `Giriş testi: ${model.expectancy.toFixed(2)}R, PF ${model.profitFactor.toFixed(2)}`,
+                `İstatistiksel kanıt: ORTA · sabit-kural testinde ${model.expectancy.toFixed(2)}R, Wilson %${model.wilson}`,
               );
             } else if (model.expectancy < 0 || model.profitFactor < 0.9) {
-              d.confidence = Math.max(2, d.confidence - 2);
               d.reasons.push(
-                `Giriş testi zayıf: ${model.expectancy.toFixed(2)}R; güven düşürüldü`,
+                `İstatistiksel kanıt: ZAYIF · sabit-kural testi ${model.expectancy.toFixed(2)}R; setup puanından ayrıdır`,
               );
-            }
-          }
-          if (ss && ss.n >= 10 && ss.exp < 0) {
-            d.confidence = Math.max(2, d.confidence - 1);
+            } else
+              d.reasons.push(
+                `İstatistiksel kanıt: DÜŞÜK · n${model.samples}, Wilson %${model.wilson}`,
+              );
+          } else
             d.reasons.push(
-              `${d.setup} geçmişi ${ss.exp.toFixed(2)}R; setup cezası`,
+              `İstatistiksel kanıt: ÇOK DÜŞÜK · yalnız n${model.samples} sabit-kural örneği`,
+            );
+          if (ss && ss.n >= 10 && ss.exp < 0) {
+            d.reasons.push(
+              `${d.setup} tarihsel ilişkisi ${ss.exp.toFixed(2)}R; bilgi amaçlı, puanı değiştirmedi`,
             );
           }
           rememberSignal(symbol, d);
