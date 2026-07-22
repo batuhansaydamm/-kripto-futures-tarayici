@@ -713,6 +713,12 @@
       const renderCore = render;
       render = function (d) {
         renderCore(d);
+        const badges = body.querySelector(".badges");
+        if (badges && d.pulse15)
+          badges.insertAdjacentHTML(
+            "beforeend",
+            `<div class="badge ${d.pulse15.tone === "long" ? "long" : d.pulse15.tone === "short" ? "short" : "neutral"}">${esc(d.pulse15.label)}</div>`,
+          );
         renderPosition(d.position);
       };
       const API = "https://fapi.binance.com";
@@ -804,6 +810,68 @@
           upper: h[i] - Math.max(o[i], c[i]),
           lower: Math.min(o[i], c[i]) - l[i],
           range: h[i] - l[i],
+        };
+      }
+      function fifteenMinutePulse(rows, closedMetrics, markPrice, t1, t4) {
+        const now = Date.now(),
+          raw = rows.at(-1),
+          isLive = raw && +raw[6] >= now,
+          row = isLive ? raw : rows.filter((x) => +x[6] < now).at(-1);
+        if (!row || !closedMetrics?.atr)
+          return {
+            label: "15D: VERİ YOK",
+            tone: "neutral",
+            note: "15D canlı nabız hesaplanamadı",
+            direction: 0,
+          };
+        const open = +row[1],
+          high = Math.max(+row[2], markPrice),
+          low = Math.min(+row[3], markPrice),
+          volume = +row[5],
+          quote = +row[7],
+          takerBuyQuote = +row[10],
+          range = Math.max(high - low, Number.EPSILON),
+          elapsedRaw = isLive ? (now - +row[0]) / 900000 : 1,
+          elapsed = Math.max(0.15, Math.min(1, elapsedRaw)),
+          history = rows.filter((x) => +x[6] < now).slice(-21, -1),
+          baseVolume = history.length ? avg(history.map((x) => +x[5])) : volume,
+          projectedRatio = baseVolume ? volume / elapsed / baseVolume : 0,
+          bodyAtr = Math.abs(markPrice - open) / closedMetrics.atr,
+          closeLocation = (markPrice - low) / range,
+          takerDelta = quote ? (2 * takerBuyQuote - quote) / quote : 0,
+          down = markPrice < open,
+          up = markPrice > open,
+          bearish =
+            down &&
+            bodyAtr >= 0.38 &&
+            closeLocation <= 0.35 &&
+            projectedRatio >= 1.25,
+          bullish =
+            up &&
+            bodyAtr >= 0.38 &&
+            closeLocation >= 0.65 &&
+            projectedRatio >= 1.25,
+          early = isLive && elapsedRaw < 0.25,
+          htf = t1 === t4 && t1 ? t1 : 0;
+        if (bearish)
+          return {
+            label: early ? "15D: ERKEN DUMP" : "15D: CANLI DUMP",
+            tone: "short",
+            direction: -1,
+            note: `${isLive ? "Açık" : "Kapalı"} 15D mum: ${bodyAtr.toFixed(2)} ATR gövde · hacim hızı ${projectedRatio.toFixed(2)}x · taker delta ${(takerDelta * 100).toFixed(0)}%${htf > 0 ? " · ana trende karşı, short yalnız retest/teyit" : " · short retest adayı"}`,
+          };
+        if (bullish)
+          return {
+            label: early ? "15D: ERKEN PUMP" : "15D: CANLI PUMP",
+            tone: "long",
+            direction: 1,
+            note: `${isLive ? "Açık" : "Kapalı"} 15D mum: ${bodyAtr.toFixed(2)} ATR gövde · hacim hızı ${projectedRatio.toFixed(2)}x · taker delta ${(takerDelta * 100).toFixed(0)}%${htf < 0 ? " · ana trende karşı, long yalnız retest/teyit" : " · long retest adayı"}`,
+          };
+        return {
+          label: "15D: SAKİN/KARIŞIK",
+          tone: "neutral",
+          direction: 0,
+          note: `15D nabız: ${bodyAtr.toFixed(2)} ATR gövde · hacim hızı ${projectedRatio.toFixed(2)}x · taker delta ${(takerDelta * 100).toFixed(0)}%; ana skora katılmadı`,
         };
       }
       function takerFlow(rows) {
@@ -1860,9 +1928,11 @@
         const t15 = trend(a),
           t1 = trend(b),
           t4 = trend(c),
-          btc = trend(y) || trend(x);
+          btc = trend(y) || trend(x),
+          pulse15 = fifteenMinutePulse(k15, a, price, t1, t4);
         let score = t4 * 3 + t1 * 2 + t15,
           reasons = [];
+        reasons.push(`${pulse15.note} · gölge katman, yön puanını değiştirmez`);
         if (t4 === t1 && t1)
           reasons.push(
             `4S–1S yapı ve EMA7/25/50 ${t1 > 0 ? "yukarı" : "aşağı"} hizalı`,
@@ -2210,6 +2280,7 @@
           current_price_context: `Mark ${fmt(price)} · 24s %${chg.toFixed(2)} · Hacim ${fmt(quoteVolume)} USDT · Funding %${funding.toFixed(4)} · OI %${oiChg.toFixed(2)}`,
           bias,
           signalTier,
+          pulse15,
           confidence,
           risk_level: risk,
           regime,
