@@ -1616,7 +1616,16 @@
           conflict =
             (s.side > 0 && freshBias === "SHORT") ||
             (s.side < 0 && freshBias === "LONG"),
-          weakened = freshBias === "NO_TRADE";
+          momentumLost =
+            s.side > 0
+              ? price < (d._context?.a?.ema7 || 0) && d._context?.t15 !== 1
+              : price > (d._context?.a?.ema7 || Infinity) &&
+                d._context?.t15 !== -1,
+          weakened = freshBias === "NO_TRADE" || momentumLost;
+        if (conflict || weakened) {
+          d.bias = "NO_TRADE";
+          d.signalTier = conflict ? "ESKİ YÖN İPTAL ADAYI" : "PLAN ASKIDA";
+        }
         if (s.status === "WAITING_ENTRY") {
           d.action = conflict
             ? `⛔ KİLİTLİ PLAN İPTAL ADAYI: yeni analiz ters yöne döndü; entry emrini yeniden değerlendir`
@@ -1633,7 +1642,7 @@
           `Plan ${age} dk önce kilitlendi; yeniden tarama entry/SL/TP seviyelerini değiştirmedi`,
         );
         d._raw = {
-          side: s.side,
+          side: conflict || weakened ? 0 : s.side,
           entry: s.entry,
           entryLow: s.entryLow,
           entryHigh: s.entryHigh,
