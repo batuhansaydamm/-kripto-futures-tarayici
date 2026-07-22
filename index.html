@@ -1001,9 +1001,9 @@
               ? levels.filter((r) => (rates[r] || 0) >= minimumRate).at(-1) ||
                 fallback
               : fallback;
-        let safeR = Math.max(0.65, Math.min(1, choose(65, 0.75))),
-          mainR = Math.max(1, Math.min(1.5, choose(45, 1))),
-          runnerR = Math.max(1.5, Math.min(2.5, choose(25, 1.5)));
+        let safeR = 1,
+          mainR = 1.5,
+          runnerR = Math.max(2, Math.min(2.5, choose(25, 2)));
         const closed = rows.filter((r) => +r[6] < Date.now()).slice(-48),
           candidates =
             side > 0
@@ -1017,16 +1017,11 @@
                   .sort((a, b) => b - a),
           barrier = candidates[0] || 0,
           barrierR = barrier ? (side * (barrier - entry)) / risk : 0;
-        // Çok yakın bir mikro swing iki hedefi aynı noktaya sıkıştırmamalı.
-        // 0.70R altındaki engeller gürültü sayılır; daha anlamlı engeller yalnız
-        // ilgili hedefi öne çeker. Son satırlar hedef sırasını garanti eder.
-        if (barrierR >= 0.7 && barrierR < safeR)
-          safeR = Math.max(0.65, barrierR * 0.94);
-        else if (barrierR >= 0.9 && barrierR < mainR)
-          mainR = Math.max(0.9, barrierR * 0.95);
-        safeR = Math.max(0.65, Math.min(safeR, mainR - 0.3));
-        mainR = Math.max(1, mainR, safeR + 0.3);
-        runnerR = Math.max(1.5, runnerR, mainR + 0.5);
+        // Geçmiş MFE hedefi küçültmez; yalnız erişim olasılığı üretir.
+        // 1R öncesindeki yakın engel varsa işlem kalitesi ayrıca uyarılır.
+        safeR = 1;
+        mainR = 1.5;
+        runnerR = Math.max(2, runnerR);
         const price = (r) => entry + side * risk * r;
         return {
           safeR,
@@ -1043,6 +1038,7 @@
             n >= 20 ? (rates[String(runnerR)] ?? rates[runnerR] ?? null) : null,
           samples: n,
           barrier,
+          barrierR,
           winnerMae80: model?.winnerMae80 || 0,
         };
       }
@@ -1490,11 +1486,13 @@
         if (!d._raw || !d._raw.side) return;
         const mem = loadMemory(),
           last = mem.signals
-            .filter((x) => x.symbol === symbol && !TERMINAL.has(x.status))
+            .filter(
+              (x) => x.symbol === symbol && !TERMINAL.has(x.status) && x.plan,
+            )
             .at(-1);
         if (last) return;
         mem.signals.push({
-          engine: "V10",
+          engine: "V10_LOCKED_PLAN",
           symbol,
           time: Date.now(),
           side: d._raw.side,
@@ -1502,6 +1500,24 @@
           stop: d._raw.stop,
           tp1: d._raw.tp1,
           tp2: d._raw.tp2,
+          runner: d._raw.runner,
+          entryLow: d._raw.entryLow,
+          entryHigh: d._raw.entryHigh,
+          plan: {
+            entry: d.entry,
+            trigger: d.trigger,
+            deepEntry: d.deepEntry,
+            entryDistance: d.entryDistance,
+            stop: d.stop,
+            structuralStop: d.structuralStop,
+            tp1: d.tp1,
+            tp2: d.tp2,
+            rr: d.rr,
+            targetEta: d.targetEta,
+            setupLife: d.setupLife,
+            managementMode: d.managementMode,
+            signalTier: d.signalTier,
+          },
           setup: d.setup,
           tradeType: d.tradeType,
           volumeRegime: d.volumeRegime,
@@ -1511,6 +1527,71 @@
         });
         mem.signals = mem.signals.slice(-150);
         saveMemory(mem);
+      }
+      function lockedSignal(symbol) {
+        return (
+          loadMemory()
+            .signals.filter(
+              (x) => x.symbol === symbol && !TERMINAL.has(x.status) && x.plan,
+            )
+            .at(-1) || null
+        );
+      }
+      function applyLockedPlan(d, s) {
+        if (!s?.plan) return d;
+        const freshBias = d.bias,
+          price = d._context?.price || 0,
+          p = s.plan;
+        Object.assign(d, {
+          bias: s.side > 0 ? "LONG" : "SHORT",
+          setup: s.setup,
+          entry: p.entry,
+          trigger: p.trigger,
+          deepEntry: p.deepEntry,
+          entryDistance: p.entryDistance,
+          stop: p.stop,
+          structuralStop: p.structuralStop,
+          tp1: p.tp1,
+          tp2: p.tp2,
+          rr: p.rr,
+          targetEta: p.targetEta,
+          setupLife: p.setupLife,
+          managementMode: p.managementMode,
+          signalTier: p.signalTier,
+        });
+        const inside = price >= s.entryLow && price <= s.entryHigh,
+          chased = s.side > 0 ? price > s.entryHigh : price < s.entryLow,
+          age = Math.max(0, (Date.now() - s.time) / 60000).toFixed(0),
+          conflict =
+            (s.side > 0 && freshBias === "SHORT") ||
+            (s.side < 0 && freshBias === "LONG"),
+          weakened = freshBias === "NO_TRADE";
+        if (s.status === "WAITING_ENTRY") {
+          d.action = conflict
+            ? `⛔ KİLİTLİ PLAN İPTAL ADAYI: yeni analiz ters yöne döndü; entry emrini yeniden değerlendir`
+            : weakened
+              ? `⏸ KİLİTLİ PLAN ASKIDA: yapı/hacim teyidi zayıfladı; seviyeler taşınmadı, yeni giriş yapma`
+              : inside
+                ? `🔒 KİLİTLİ PLAN: fiyat orijinal entry bölgesinde; 15D teyidi izle`
+                : chased
+                  ? `🔒 KİLİTLİ PLAN: fiyat entry'den uzak; peşinden koşma, bölgeye dönüş bekle`
+                  : `🔒 KİLİTLİ PLAN: fiyat bölgenin ötesinde; reclaim/rejection olmadan giriş yapma`;
+        } else
+          d.action = `🔒 KİLİTLİ PLAN ${s.status}: seviyeler ilk sinyalden korunuyor`;
+        d.reasons.unshift(
+          `Plan ${age} dk önce kilitlendi; yeniden tarama entry/SL/TP seviyelerini değiştirmedi`,
+        );
+        d._raw = {
+          side: s.side,
+          entry: s.entry,
+          entryLow: s.entryLow,
+          entryHigh: s.entryHigh,
+          stop: s.stop,
+          tp1: s.tp1,
+          tp2: s.tp2,
+          runner: s.runner,
+        };
+        return d;
       }
       function memoryView(symbol, model, mem) {
         const all = mem.signals.filter((x) => x.symbol === symbol),
@@ -2028,6 +2109,10 @@
           reasons.push(
             `Kalibre hedef: TP1 ${targets.safeR.toFixed(2)}R · TP2 ${targets.mainR.toFixed(2)}R · runner ${fmt(targets.runner)} (${targets.runnerR.toFixed(2)}R)`,
           );
+        if (side && targets?.barrierR > 0.3 && targets.barrierR < 1)
+          reasons.push(
+            `Yakın engel ${targets.barrierR.toFixed(2)}R mesafede; hedef küçültülmedi, setup kalitesi düşük kabul edilmeli`,
+          );
         const crowded =
             (side > 0 && funding > 0.05) || (side < 0 && funding < -0.05),
           risk =
@@ -2096,7 +2181,16 @@
             ? "Taktik stop yerel 15D swing içindir; yapısal iptal daha geniş bağlamdır. Süre tahmini kesin değildir. Kaldıraç sinyal gücü değildir; zarar da büyür. Kaybı karşılanabilir risk sermayesi kullan."
             : "Yön, likidite veya uygulanabilir stop oluşmadan FOMO ile pozisyon açma.",
           position,
-          _raw: { side, entry: e, stop, tp1, tp2 },
+          _raw: {
+            side,
+            entry: e,
+            entryLow: side ? e - a.atr * 0.18 : 0,
+            entryHigh: side ? e + a.atr * 0.18 : 0,
+            stop,
+            tp1,
+            tp2,
+            runner: targets?.runner || 0,
+          },
           _context: context,
         };
       }
@@ -2211,6 +2305,7 @@
             );
           }
           rememberSignal(symbol, d);
+          applyLockedPlan(d, lockedSignal(symbol));
           d.memory = memoryView(symbol, model, loadMemory());
           render(d);
         } catch (e) {
