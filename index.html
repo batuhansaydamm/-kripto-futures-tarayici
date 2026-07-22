@@ -1001,9 +1001,9 @@
               ? levels.filter((r) => (rates[r] || 0) >= minimumRate).at(-1) ||
                 fallback
               : fallback;
-        let safeR = Math.max(0.5, Math.min(1, choose(65, 0.75))),
-          mainR = Math.max(safeR, Math.min(1.5, choose(45, 1))),
-          runnerR = Math.max(mainR, Math.min(2.5, choose(25, 1.5)));
+        let safeR = Math.max(0.65, Math.min(1, choose(65, 0.75))),
+          mainR = Math.max(1, Math.min(1.5, choose(45, 1))),
+          runnerR = Math.max(1.5, Math.min(2.5, choose(25, 1.5)));
         const closed = rows.filter((r) => +r[6] < Date.now()).slice(-48),
           candidates =
             side > 0
@@ -1017,10 +1017,16 @@
                   .sort((a, b) => b - a),
           barrier = candidates[0] || 0,
           barrierR = barrier ? (side * (barrier - entry)) / risk : 0;
-        if (barrierR >= 0.35 && barrierR < mainR)
-          mainR = Math.max(0.35, barrierR * 0.92);
-        safeR = Math.min(safeR, mainR);
-        runnerR = Math.max(mainR + 0.25, runnerR);
+        // Çok yakın bir mikro swing iki hedefi aynı noktaya sıkıştırmamalı.
+        // 0.70R altındaki engeller gürültü sayılır; daha anlamlı engeller yalnız
+        // ilgili hedefi öne çeker. Son satırlar hedef sırasını garanti eder.
+        if (barrierR >= 0.7 && barrierR < safeR)
+          safeR = Math.max(0.65, barrierR * 0.94);
+        else if (barrierR >= 0.9 && barrierR < mainR)
+          mainR = Math.max(0.9, barrierR * 0.95);
+        safeR = Math.max(0.65, Math.min(safeR, mainR - 0.3));
+        mainR = Math.max(1, mainR, safeR + 0.3);
+        runnerR = Math.max(1.5, runnerR, mainR + 0.5);
         const price = (r) => entry + side * risk * r;
         return {
           safeR,
@@ -2074,7 +2080,7 @@
           tp2: tp2 ? fmt(tp2) : "—",
           rr:
             side && targets
-              ? `TP1 1:${targets.safeR.toFixed(2)} · TP2 1:${targets.mainR.toFixed(2)}`
+              ? `TP1: +${targets.safeR.toFixed(2)}R · TP2: +${targets.mainR.toFixed(2)}R · Stop: -1R`
               : "—",
           volumeRegime: horizon.volumeRegime,
           moveQuality: horizon.moveQuality,
