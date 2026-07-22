@@ -565,7 +565,7 @@
       <div class="tape-wrap"><div class="tape" id="tape"></div></div>
       <header class="header">
         <div class="eyebrow">
-          V10 · Calibrated Exits + Tactical Invalidation + Honest Evidence
+          V10.1 · Calibrated Exits + Exhaustion Safety + Honest Evidence
         </div>
         <div class="title-row">
           <div>
@@ -858,6 +858,10 @@
             label: early ? "15D: ERKEN DUMP" : "15D: CANLI DUMP",
             tone: "short",
             direction: -1,
+            bodyAtr,
+            projectedRatio,
+            closeLocation,
+            takerDelta,
             note: `${isLive ? "Açık" : "Kapalı"} 15D mum: ${bodyAtr.toFixed(2)} ATR gövde · hacim hızı ${projectedRatio.toFixed(2)}x · taker delta ${(takerDelta * 100).toFixed(0)}%${htf > 0 ? " · ana trende karşı, short yalnız retest/teyit" : " · short retest adayı"}`,
           };
         if (bullish)
@@ -865,12 +869,20 @@
             label: early ? "15D: ERKEN PUMP" : "15D: CANLI PUMP",
             tone: "long",
             direction: 1,
+            bodyAtr,
+            projectedRatio,
+            closeLocation,
+            takerDelta,
             note: `${isLive ? "Açık" : "Kapalı"} 15D mum: ${bodyAtr.toFixed(2)} ATR gövde · hacim hızı ${projectedRatio.toFixed(2)}x · taker delta ${(takerDelta * 100).toFixed(0)}%${htf < 0 ? " · ana trende karşı, long yalnız retest/teyit" : " · long retest adayı"}`,
           };
         return {
           label: "15D: SAKİN/KARIŞIK",
           tone: "neutral",
           direction: 0,
+          bodyAtr,
+          projectedRatio,
+          closeLocation,
+          takerDelta,
           note: `15D nabız: ${bodyAtr.toFixed(2)} ATR gövde · hacim hızı ${projectedRatio.toFixed(2)}x · taker delta ${(takerDelta * 100).toFixed(0)}%; ana skora katılmadı`,
         };
       }
@@ -1934,7 +1946,7 @@
           reasons = [];
         reasons.push(`${pulse15.note} · gölge katman, yön puanını değiştirmez`);
         if (t4 === t1 && t1)
-          reasons.push(
+          reasons.unshift(
             `4S–1S yapı ve EMA7/25/50 ${t1 > 0 ? "yukarı" : "aşağı"} hizalı`,
           );
         else reasons.push("4S–1S hizası eksik; geçiş/whipsaw riski");
@@ -2119,6 +2131,45 @@
           setup = "BELİRSİZ",
           action = "⏸ Net edge yok — işlem açma",
           entry = "—";
+        // Safety overlay: this does not create a counter-trend short by itself.
+        // It only blocks a late long during a parabolic/volume-climax phase, or
+        // after a live high-volume breakdown. A short still needs a failed retest.
+        const extension25 = a.atr ? (price - a.ema25) / a.atr : 0,
+          recentAdvanceAtr =
+            k15.length >= 6 && a.atr
+              ? (price - +k15.at(-6)[4]) / a.atr
+              : 0,
+          volumeAcceleration = Math.max(
+            a.volRatio4 || 0,
+            pulse15.projectedRatio || 0,
+          ),
+          parabolicLongRisk =
+            price > a.ema25 &&
+            extension25 >= 2.35 &&
+            recentAdvanceAtr >= 2.75 &&
+            chg >= 12 &&
+            volumeAcceleration >= 1.65,
+          liveDumpBreak =
+            pulse15.direction < 0 &&
+            pulse15.bodyAtr >= 0.65 &&
+            pulse15.projectedRatio >= 1.65 &&
+            price < a.ema7 &&
+            (price < a.ema25 || pulse15.closeLocation <= 0.2),
+          exhaustionLock =
+            bias === "LONG" && (parabolicLongRisk || liveDumpBreak);
+        if (exhaustionLock) {
+          bias = "NO_TRADE";
+          side = 0;
+          setup = liveDumpBreak ? "HACİMLİ KIRILMA" : "ALIM KLİMAKSI RİSKİ";
+          action = liveDumpBreak
+            ? "⛔ LONG İPTAL — hacimli yapı kırıldı; short için EMA7/25 retest-rejection bekle"
+            : "⛔ YENİ LONG AÇMA — parabolik uzama ve hacim klimaksı; kârı koru, yapı kurulmasını bekle";
+          reasons.push(
+            liveDumpBreak
+              ? `Canlı 15D düşüş ${pulse15.bodyAtr.toFixed(2)} ATR · hacim hızı ${pulse15.projectedRatio.toFixed(2)}x; long yapısı kırıldı`
+              : `Parabolik uzama ${extension25.toFixed(2)} ATR · son hareket ${recentAdvanceAtr.toFixed(2)} ATR · hacim ${volumeAcceleration.toFixed(2)}x`,
+          );
+        }
         const anomaly = a.range > a.atr * 6 || b.range > b.atr * 6;
         if (anomaly) {
           bias = "NO_TRADE";
@@ -2246,7 +2297,7 @@
         const crowded =
             (side > 0 && funding > 0.05) || (side < 0 && funding < -0.05),
           risk =
-            stopTooFar || liquidityBlocked || spreadBlocked
+            stopTooFar || liquidityBlocked || spreadBlocked || exhaustionLock
               ? "EKSTREM"
               : atrPct > 4 || crowded
                 ? "EKSTREM"
@@ -2308,7 +2359,9 @@
               ? `%30 TP1 · %30 TP2 · %40 runner/trailing`
               : horizon.managementMode,
           reasons: reasons.slice(0, 11),
-          caution: side
+          caution: exhaustionLock
+            ? "Parabolik/hacimli hareketlerde yön doğru olsa bile likidasyon ve kayma riski büyür. Yeni long kilitlidir; karşı yön ancak retest ve kapanış teyidiyle değerlendirilir."
+            : side
             ? "Taktik stop yerel 15D swing içindir; yapısal iptal daha geniş bağlamdır. Süre tahmini kesin değildir. Kaldıraç sinyal gücü değildir; zarar da büyür. Kaybı karşılanabilir risk sermayesi kullan."
             : "Yön, likidite veya uygulanabilir stop oluşmadan FOMO ile pozisyon açma.",
           position,
