@@ -1422,6 +1422,7 @@
         "STOP_AFTER_TP1",
         "MISSED",
         "EXPIRED",
+        "PASSED",
       ]);
       function resolveSignals(symbol, rows) {
         const mem = loadMemory(),
@@ -1536,6 +1537,56 @@
             )
             .at(-1) || null
         );
+      }
+      function retirePassedPlan(symbol, d) {
+        const mem = loadMemory(),
+          s = mem.signals
+            .filter(
+              (x) =>
+                x.symbol === symbol && x.status === "WAITING_ENTRY" && x.plan,
+            )
+            .at(-1);
+        if (!s || !d?._context?.price) return false;
+        const price = d._context.price,
+          risk = Math.abs(s.entry - s.stop),
+          tolerance = Math.max(risk * 0.1, price * 0.0005),
+          passed =
+            s.side > 0
+              ? price < s.entryLow - tolerance
+              : price > s.entryHigh + tolerance;
+        if (!passed) return false;
+        s.status = "PASSED";
+        s.closed = Date.now();
+        s.note = "Entry bölgesi ters yönde geçildi; gerçek dolum bilinmiyor.";
+        saveMemory(mem);
+        d.bias = "NO_TRADE";
+        d.signalTier = "ESKİ PLAN GEÇİLDİ";
+        d.action =
+          "⛔ ENTRY BÖLGESİ GEÇİLDİ: yeni emir koyma. Emir dolduysa pozisyon yöneticisine gir; dolmadıysa yeni 15D kapanışı bekle.";
+        d.entry = "GEÇİLDİ — YENİ EMİR YOK";
+        d.trigger = "Yeni 15D kapanıştan sonra yeniden tara";
+        d.deepEntry = d.entryDistance = "—";
+        d.stop = d.tp1 = d.tp2 = d.rr = "—";
+        d.reasons.unshift(
+          `Eski plan ${fmt(s.entryLow)}–${fmt(s.entryHigh)} idi; fiyat ters yönde geçtiği için yeniden fiyatlanmadı`,
+        );
+        d._raw = { side: 0, entry: 0, stop: 0, tp1: 0, tp2: 0 };
+        return true;
+      }
+      function holdUntilNextClose(symbol, d) {
+        const last = loadMemory()
+          .signals.filter((x) => x.symbol === symbol && x.status === "PASSED")
+          .at(-1);
+        if (!last?.closed) return false;
+        const nextClose = Math.floor(last.closed / 900000) * 900000 + 900000;
+        if (Date.now() >= nextClose) return false;
+        d.bias = "NO_TRADE";
+        d.signalTier = "YENİ MUM BEKLENİYOR";
+        d.action = `⏳ Eski entry geçildi; ${new Date(nextClose).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })} kapanışına kadar yeni plan üretme`;
+        d.entry = d.trigger = d.deepEntry = d.entryDistance = "—";
+        d.stop = d.tp1 = d.tp2 = d.rr = "—";
+        d._raw = { side: 0, entry: 0, stop: 0, tp1: 0, tp2: 0 };
+        return true;
       }
       function applyLockedPlan(d, s) {
         if (!s?.plan) return d;
@@ -2304,8 +2355,14 @@
               `${d.setup} tarihsel ilişkisi ${ss.exp.toFixed(2)}R; bilgi amaçlı, puanı değiştirmedi`,
             );
           }
-          rememberSignal(symbol, d);
-          applyLockedPlan(d, lockedSignal(symbol));
+          const passedPlan = retirePassedPlan(symbol, d);
+          if (!passedPlan) {
+            const closeCooldown = holdUntilNextClose(symbol, d);
+            if (!closeCooldown) {
+              rememberSignal(symbol, d);
+              applyLockedPlan(d, lockedSignal(symbol));
+            }
+          }
           d.memory = memoryView(symbol, model, loadMemory());
           render(d);
         } catch (e) {
