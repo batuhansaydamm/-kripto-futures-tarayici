@@ -549,6 +549,16 @@
           10px/1.5 "IBM Plex Mono",
           monospace;
       }
+      .shadow-card {
+        margin: 0 0 18px;
+        padding: 13px 14px;
+        border: 1px solid #5c4318;
+        border-radius: 9px;
+        background: var(--amberdim);
+        color: var(--amber);
+        font: 12px/1.65 "IBM Plex Mono", monospace;
+      }
+      .shadow-card b { color: var(--text); }
       @media (max-width: 800px) {
         .position-fields {
           grid-template-columns: repeat(2, 1fr);
@@ -565,7 +575,7 @@
       <div class="tape-wrap"><div class="tape" id="tape"></div></div>
       <header class="header">
         <div class="eyebrow">
-          V10.1 · Calibrated Exits + Exhaustion Safety + Honest Evidence
+          V11 · Evidence Split + Reversal Shadow + Liquidation Safety
         </div>
         <div class="title-row">
           <div>
@@ -614,7 +624,18 @@
             min="1"
             max="125"
             placeholder="Kaldıraç"
-          /><input
+          /><select id="posMarginMode">
+            <option value="ISOLATED">ISOLATED</option>
+            <option value="CROSS">CROSS</option>
+          </select><input
+            id="posLiqPrice"
+            type="number"
+            step="any"
+            placeholder="Likidasyon (ops.)"
+          /><select id="posStopConfirmed">
+            <option value="NO">SL BORSADA? HAYIR</option>
+            <option value="YES">SL BORSADA ✓</option>
+          </select><input
             id="posBalance"
             type="number"
             step="any"
@@ -714,10 +735,27 @@
       render = function (d) {
         renderCore(d);
         const badges = body.querySelector(".badges");
-        if (badges && d.pulse15)
+        if (badges) {
+          if (d.pulse15)
+            badges.insertAdjacentHTML(
+              "beforeend",
+              `<div class="badge ${d.pulse15.tone === "long" ? "long" : d.pulse15.tone === "short" ? "short" : "neutral"}">${esc(d.pulse15.label)}</div>`,
+            );
           badges.insertAdjacentHTML(
             "beforeend",
-            `<div class="badge ${d.pulse15.tone === "long" ? "long" : d.pulse15.tone === "short" ? "short" : "neutral"}">${esc(d.pulse15.label)}</div>`,
+            `<div class="badge neutral">KANIT: ${esc(d.evidenceGrade || "ÇOK DÜŞÜK")}</div>`,
+          );
+        }
+        const confLabel = body.querySelector(".conf-label");
+        if (confLabel) confLabel.textContent = "Kural uyumu";
+        const memoryTitle = body.querySelector(".memory-title");
+        if (memoryTitle)
+          memoryTitle.textContent = `V11 KANIT DEFTERİ · ${d.memory?.symbol || ""}`;
+        const plan = body.querySelector(".plan");
+        if (plan && d.reversal?.active)
+          plan.insertAdjacentHTML(
+            "beforebegin",
+            `<div class="shadow-card"><b>GÖLGE ${esc(d.reversal.side)} ADAYI · ${esc(d.reversal.points)}/5</b><br>${esc(d.reversal.note)}<br>Tetik: ${esc(d.reversal.trigger)} · Mikro stop: ${esc(d.reversal.microStop)}<br>Henüz ana skora katılmaz; geçmiş örnekleri biriktirilir.</div>`,
           );
         renderPosition(d.position);
       };
@@ -1071,6 +1109,66 @@
             ? lows.filter((v) => v < entry).at(-1) || fallback
             : highs.filter((v) => v > entry).at(-1) || fallback;
         return side > 0 ? pivot - atr * 0.12 : pivot + atr * 0.12;
+      }
+      function microSwing(rows, side, atr, entry) {
+        const x = rows.filter((r) => +r[6] < Date.now()).slice(-6);
+        if (x.length < 3) return tacticalSwing(rows, side, atr, entry);
+        const candidates =
+          side > 0
+            ? x.slice(0, -1).map((r) => +r[3]).filter((v) => v < entry)
+            : x.slice(0, -1).map((r) => +r[2]).filter((v) => v > entry);
+        if (!candidates.length) return tacticalSwing(rows, side, atr, entry);
+        const pivot = side > 0 ? Math.max(...candidates) : Math.min(...candidates);
+        return side > 0 ? pivot - atr * 0.1 : pivot + atr * 0.1;
+      }
+      function reversalShadow(rows, a, b, price) {
+        const x = rows.filter((r) => +r[6] < Date.now()).slice(-9);
+        if (x.length < 7 || !a.atr)
+          return { active: false, side: "—", points: 0 };
+        const highs = x.slice(-4).map((r) => +r[2]),
+          lows = x.slice(-4).map((r) => +r[3]),
+          vols = x.map((r) => +r[5]),
+          prev = metrics(rows.filter((r) => +r[6] < Date.now()).slice(0, -1)),
+          upContext = b.close > b.ema25 && Math.max(...highs) > a.ema25,
+          downContext = b.close < b.ema25 && Math.min(...lows) < a.ema25,
+          lowerHighs = highs[3] < highs[2] && highs[2] <= highs[1],
+          higherLows = lows[3] > lows[2] && lows[2] >= lows[1],
+          emaTurnDown = a.ema7 < prev.ema7,
+          emaTurnUp = a.ema7 > prev.ema7,
+          below7 = price < a.ema7,
+          above7 = price > a.ema7,
+          faded = avg(vols.slice(-3)) < avg(vols.slice(0, 4)) * 0.85,
+          shortPoints =
+            +upContext + +lowerHighs + +emaTurnDown + +below7 + +faded,
+          longPoints =
+            +downContext + +higherLows + +emaTurnUp + +above7 + +faded,
+          side = shortPoints >= longPoints ? -1 : 1,
+          points = Math.max(shortPoints, longPoints),
+          active = points >= 4,
+          recent = x.slice(-4),
+          entry =
+            side < 0
+              ? Math.max(a.ema7, price)
+              : Math.min(a.ema7, price),
+          stop = microSwing(rows, side, a.atr, entry);
+        return {
+          active,
+          side: side < 0 ? "SHORT" : "LONG",
+          sideNum: side,
+          points,
+          trigger:
+            side < 0
+              ? `${fmt(a.ema7)} çevresi retest/rejection veya ${fmt(a.ema25)} altı 15D kapanış`
+              : `${fmt(a.ema7)} çevresi reclaim veya ${fmt(a.ema25)} üstü 15D kapanış`,
+          microStop: fmt(stop),
+          rawStop: stop,
+          entry,
+          note:
+            side < 0
+              ? "Ana trend yukarı kalabilir; lower-high, EMA7 dönüşü ve sönümlenen katılım kısa vadeli tepe riski oluşturuyor."
+              : "Ana trend aşağı kalabilir; higher-low, EMA7 dönüşü ve sönümlenen satış baskısı kısa vadeli dip riski oluşturuyor.",
+          recent,
+        };
       }
       function calibratedTargets(model, rows, side, entry, risk) {
         const rates = model?.reachRates || {},
@@ -1444,6 +1542,105 @@
         saveMemory(mem);
         return model;
       }
+      function compositeOosReplay(k15, k1, k4, btc1, btc4, symbol) {
+        const a = k15.filter((x) => +x[6] < Date.now()),
+          h1 = k1.filter((x) => +x[6] < Date.now()),
+          h4 = k4.filter((x) => +x[6] < Date.now()),
+          b1 = btc1.filter((x) => +x[6] < Date.now()),
+          b4 = btc4.filter((x) => +x[6] < Date.now()),
+          start = Math.max(140, Math.floor(a.length * 0.7)),
+          outcomes = [],
+          upto = (r, t) => r.filter((x) => +x[6] <= t),
+          trend = (m) =>
+            m.close > m.ema7 && m.ema7 > m.ema25 && m.ema25 > m.ema50
+              ? 1
+              : m.close < m.ema7 && m.ema7 < m.ema25 && m.ema25 < m.ema50
+                ? -1
+                : 0;
+        for (let i = start; i < a.length - 25; i++) {
+          const t = +a[i][6],
+            wa = a.slice(0, i + 1),
+            w1 = upto(h1, t),
+            w4 = upto(h4, t),
+            wb1 = upto(b1, t),
+            wb4 = upto(b4, t);
+          if ([w1, w4, wb1, wb4].some((r) => r.length < 70)) continue;
+          const m = metrics(wa),
+            m1 = metrics(w1),
+            m4 = metrics(w4),
+            mb1 = metrics(wb1),
+            mb4 = metrics(wb4),
+            t15 = trend(m),
+            t1 = trend(m1),
+            t4 = trend(m4),
+            btc = trend(mb4) || trend(mb1);
+          let score = t4 * 3 + t1 * 2 + t15;
+          if (symbol !== "BTCUSDT" && btc)
+            score += Math.sign(score) === btc ? btc : -Math.sign(score) * 2;
+          if (m.close > m.prevHigh) score += 1;
+          if (m.close < m.prevLow) score -= 1;
+          if (m.low < m.prevLow && m.close > m.prevLow) score += 2;
+          if (m.high > m.prevHigh && m.close < m.prevHigh) score -= 2;
+          const body = m.range ? Math.abs(m.close - m.open) / m.range : 0,
+            dir = Math.sign(m.close - m.open);
+          if (m.volRatio >= 1.5 && body > 0.55) score += dir;
+          if (
+            m.volRatio >= 2 &&
+            (body < 0.3 || Math.max(m.upper, m.lower) > m.range * 0.45)
+          )
+            score -= Math.sign(score || t15) * 1.5;
+          if (Math.abs(m.takerDelta4) >= 0.28)
+            score += Math.sign(m.takerDelta4);
+          const side = score >= 4 ? 1 : score <= -4 ? -1 : 0;
+          if (!side) continue;
+          const entry = m.close,
+            stop = microSwing(wa, side, m.atr, entry),
+            risk = Math.abs(entry - stop);
+          if (
+            !risk ||
+            risk / m.atr > 2.75 ||
+            risk / entry > 0.08 ||
+            (side > 0 ? stop >= entry : stop <= entry)
+          )
+            continue;
+          const target = entry + side * risk * 1.5;
+          let net = 0;
+          for (let j = i + 1; j <= Math.min(i + 24, a.length - 1); j++) {
+            const hi = +a[j][2],
+              lo = +a[j][3],
+              hitStop = side > 0 ? lo <= stop : hi >= stop,
+              hitTarget = side > 0 ? hi >= target : lo <= target;
+            if (hitStop || hitTarget) {
+              net = (hitStop ? -1 : 1.5) - 0.08;
+              i = j;
+              break;
+            }
+            if (j === Math.min(i + 24, a.length - 1))
+              net = Math.max(
+                -1,
+                Math.min(1.5, (side * (+a[j][4] - entry)) / risk),
+              ) - 0.08;
+          }
+          outcomes.push(net);
+        }
+        const n = outcomes.length,
+          wins = outcomes.filter((x) => x > 0).length,
+          expectancy = n ? avg(outcomes) : 0,
+          gp = outcomes.filter((x) => x > 0).reduce((s, x) => s + x, 0),
+          gl = Math.abs(
+            outcomes.filter((x) => x < 0).reduce((s, x) => s + x, 0),
+          );
+        return {
+          n,
+          wins,
+          winRate: n ? +((wins / n) * 100).toFixed(1) : 0,
+          wilson: +wilson(wins, n).toFixed(1),
+          expectancy: +expectancy.toFixed(2),
+          profitFactor: +(gl ? gp / gl : gp ? 99 : 0).toFixed(2),
+          note:
+            "Son %30 kronolojik bölümde çekirdek kompozit replay; ağırlıklar optimize edilmedi ve geliştirme sürecinden tamamen bağımsız/untouched değildir.",
+        };
+      }
       function featureBacktest(k15, taker) {
         const a = k15.filter((x) => +x[6] < Date.now()),
           samples = {
@@ -1451,6 +1648,7 @@
             TAKER_FLOW: [],
             VOLUME_EXPANSION: [],
             VOLUME_CLIMAX_REVERSAL: [],
+            REVERSAL_SHADOW: [],
           },
           summ = (x) => ({
             n: x.length,
@@ -1491,6 +1689,19 @@
             samples.VOLUME_CLIMAX_REVERSAL.push(
               Math.max(-3, Math.min(3, (-dir * (future - m.close)) / m.atr)),
             );
+          const shadow = reversalShadow(w, m, m, m.close);
+          if (shadow.active) {
+            const future8 = +a[Math.min(i + 8, a.length - 1)][4];
+            samples.REVERSAL_SHADOW.push(
+              Math.max(
+                -3,
+                Math.min(
+                  3,
+                  (shadow.sideNum * (future8 - m.close)) / m.atr,
+                ),
+              ),
+            );
+          }
         }
         return Object.fromEntries(
           Object.entries(samples).map(([k, v]) => [k, summ(v)]),
@@ -1749,24 +1960,30 @@
               ([k, v]) =>
                 `${k} yön ilişkisi: n${v.n} / aynı yön %${v.hitRate} / ${v.forwardR} ATR`,
             )
-            .join(" · ");
+            .join(" · "),
+          oos = model.compositeOos || {};
         return {
           symbol,
-          samples: model.samples,
-          winRate: model.winRate,
-          expectancy: model.expectancy,
-          profitFactor: model.profitFactor,
-          wilson: model.wilson,
+          samples: oos.n || 0,
+          winRate: oos.winRate || 0,
+          expectancy: oos.expectancy || 0,
+          profitFactor: oos.profitFactor || 0,
+          wilson: oos.wilson || 0,
           maxDD: model.maxDD,
           resolved: done.length,
           liveWinRate: done.length
             ? `%${((wins / done.length) * 100).toFixed(1)}`
             : "—",
-          lastSignals: [features, setups, last].filter(Boolean).join(" | "),
+          lastSignals: [
+            `Kompozit: ${oos.note || "hesaplanamadı"}`,
+            features,
+            setups,
+            last,
+          ]
+            .filter(Boolean)
+            .join(" | "),
           note:
-            model.samples < 30
-              ? "KRONOLOJİK SABİT-KURAL TESTİ · Örnek az. Bu gerçek walk-forward optimizasyon değildir. Kayıt yalnız bu cihaz/tarayıcıdadır."
-              : "KRONOLOJİK SABİT-KURAL TESTİ · Gerçek WFO/hold-out değildir. Sanal günlük gerçek emri izlemez; kayıt yalnız bu cihaz/tarayıcıdadır.",
+            "V11 ÇEKİRDEK KOMPOZİT OOS REPLAY · Son %30 kronolojik bölüm. Ağırlıklar optimize edilmedi; tamamen untouched test değildir. Sanal günlük gerçek emri izlemez ve kayıt yalnız bu cihazdadır.",
         };
       }
       function readPosition() {
@@ -1776,6 +1993,9 @@
           stop: +$("posStop").value,
           target: +$("posTarget").value,
           leverage: +$("posLeverage").value || 1,
+          marginMode: $("posMarginMode").value,
+          liqPrice: +$("posLiqPrice").value || 0,
+          stopConfirmed: $("posStopConfirmed").value === "YES",
           balance: +$("posBalance").value || 0,
           riskPct: +$("posRiskPct").value || 1,
           feePct: +$("posFeePct").value || 0,
@@ -1791,6 +2011,18 @@
           risk = Math.abs(pos.entry - pos.stop),
           stopPct = risk / pos.entry;
         if (!risk) return null;
+        const stopValid =
+            side > 0 ? pos.stop < pos.entry : pos.stop > pos.entry,
+          estimatedLiq =
+            pos.liqPrice ||
+            pos.entry *
+              (1 - side * Math.max(0.001, 1 / pos.leverage - 0.005)),
+          stopBeforeLiq =
+            side > 0 ? pos.stop > estimatedLiq : pos.stop < estimatedLiq,
+          liqDistancePct =
+            (Math.abs(pos.entry - estimatedLiq) / pos.entry) * 100,
+          stopLiqBuffer =
+            (Math.abs(pos.stop - estimatedLiq) / pos.entry) * 100;
         const grossPnl =
             ((side * (price - pos.entry)) / pos.entry) * pos.leverage * 100,
           rNow = (side * (price - pos.entry)) / risk,
@@ -1833,7 +2065,19 @@
         let decision = "TUT · EKLEME YAPMA",
           why = "Ana yapı pozisyon yönünü henüz bozmadı.",
           plan = "SL korunur; yeni risk eklenmez.";
-        if (stopHit) {
+        if (!stopValid) {
+          decision = "⛔ STOP HATALI";
+          why = "Stop, pozisyon yönünün yanlış tarafında.";
+          plan = "Emri kontrol et; bu pozisyon planını geçerli kabul etme.";
+        } else if (!stopBeforeLiq || stopLiqBuffer < stopPct * 100 * 0.2) {
+          decision = "⛔ LİKİDASYON RİSKİ";
+          why = "Stop likidasyonun arkasında veya tehlikeli derecede yakın.";
+          plan = "Kaldıracı/pozisyonu azalt; stop likidasyondan belirgin önce olmalı.";
+        } else if (pos.marginMode === "CROSS" && pos.leverage >= 10) {
+          decision = "⚠ CROSS RİSKİ · EKLEME YAPMA";
+          why = "Cross marjin ve yüksek kaldıraç, uygun bakiyeyi pozisyona açabilir.";
+          plan = "SL emrini borsada doğrula; isolated seçeneğini değerlendir.";
+        } else if (stopHit) {
           decision = "ÇIK";
           why = "Kullanıcının belirlediği stop/invalidasyon gerçekleşti.";
           plan = "Pozisyonu kapat; stopu genişletme.";
@@ -1892,6 +2136,11 @@
           riskBudget: +riskBudget.toFixed(2),
           notional: +notional.toFixed(2),
           margin: +margin.toFixed(2),
+          marginMode: pos.marginMode,
+          estimatedLiq: +estimatedLiq.toFixed(8),
+          liqDistancePct: +liqDistancePct.toFixed(2),
+          stopLiqBuffer: +stopLiqBuffer.toFixed(2),
+          liqIsExact: !!pos.liqPrice,
           price,
         };
       }
@@ -1902,9 +2151,10 @@
         const sizing = p.riskBudget
           ? ` · Risk bütçesi ${p.riskBudget} USDT · Pozisyon ${p.notional} USDT · Marj ≈ ${p.margin} USDT`
           : "";
+        const liquidation = ` · ${p.marginMode} · ${p.liqIsExact ? "Borsa" : "Yaklaşık"} liq ${fmt(p.estimatedLiq)} · Entry mesafesi %${p.liqDistancePct} · Stop tamponu %${p.stopLiqBuffer}`;
         root.insertAdjacentHTML(
           "afterbegin",
-          `<div class="manage-card"><div class="manage-decision">DENEYSEL POZİSYON PLANI: ${esc(p.decision)}</div><div class="manage-stats">Brüt ROI: ${p.grossPnl}% · Tahmini net ROI: ${p.netPnl}% · Peak: ${p.peak}% · ${p.r}R · ${p.hours} saat${esc(sizing)}</div><div class="manage-why">${esc(p.why)}</div><div class="manage-plan">${esc(p.plan)}</div><div class="experimental">Funding hesabı mevcut oranın değişmeden kaldığı varsayımıdır; gerçek oran değişebilir. Yönetim eşikleri ayrı bir geçmiş pozisyon backtestiyle doğrulanmadı.</div></div>`,
+          `<div class="manage-card"><div class="manage-decision">DENEYSEL POZİSYON PLANI: ${esc(p.decision)}</div><div class="manage-stats">Brüt ROI: ${p.grossPnl}% · Tahmini net ROI: ${p.netPnl}% · Peak: ${p.peak}% · ${p.r}R · ${p.hours} saat${esc(sizing + liquidation)}</div><div class="manage-why">${esc(p.why)}</div><div class="manage-plan">${esc(p.plan)}</div><div class="experimental">Girilen likidasyon fiyatı yoksa gösterilen değer yaklaşık tahmindir; maintenance margin, Cross bakiye ve diğer pozisyonları tam modellemez. Funding oranı da değişebilir. Yönetim eşikleri ayrı bir geçmiş pozisyon backtestiyle doğrulanmadı.</div></div>`,
         );
       }
       function analyze(
@@ -1941,7 +2191,8 @@
           t1 = trend(b),
           t4 = trend(c),
           btc = trend(y) || trend(x),
-          pulse15 = fifteenMinutePulse(k15, a, price, t1, t4);
+          pulse15 = fifteenMinutePulse(k15, a, price, t1, t4),
+          reversal = reversalShadow(k15, a, b, price);
         let score = t4 * 3 + t1 * 2 + t15,
           reasons = [];
         reasons.push(`${pulse15.note} · gölge katman, yön puanını değiştirmez`);
@@ -2248,7 +2499,16 @@
               ? struct - a.atr * 0.15
               : struct + a.atr * 0.15
             : 0,
-          stop = side ? tacticalSwing(k15, side, a.atr, e) : 0,
+          wideStop = side ? tacticalSwing(k15, side, a.atr, e) : 0,
+          localStop = side ? microSwing(k15, side, a.atr, e) : 0,
+          localRisk = side ? Math.abs(e - localStop) : 0,
+          stop =
+            side &&
+            localRisk / a.atr >= 0.25 &&
+            localRisk / a.atr <= 1.8 &&
+            (side > 0 ? localStop < e : localStop > e)
+              ? localStop
+              : wideStop,
           r = Math.abs(e - stop),
           targets = side ? calibratedTargets(model, k15, side, e, r) : null,
           tp1 = targets?.tp1 || 0,
@@ -2321,6 +2581,21 @@
             "Kararlı order book baskısı entry yönüne ters; teyit bekle",
           );
         }
+        const oos = model?.compositeOos || {},
+          evidenceGrade =
+            oos.n >= 40 &&
+            oos.expectancy > 0.15 &&
+            oos.wilson >= 35 &&
+            oos.profitFactor >= 1.15
+              ? "ORTA"
+              : oos.n >= 20 && oos.expectancy > 0 && oos.profitFactor >= 1
+                ? "DÜŞÜK"
+                : oos.n >= 15 && oos.expectancy <= 0
+                  ? "ZAYIF"
+                  : "ÇOK DÜŞÜK";
+        reasons.unshift(
+          `Kompozit OOS replay: n${oos.n || 0} · ${Number(oos.expectancy || 0).toFixed(2)}R · Wilson %${Number(oos.wilson || 0).toFixed(1)} · kanıt ${evidenceGrade}`,
+        );
         const context = { price, a, b, t15, t1, t4, flow, book, funding },
           position = manageMode
             ? managePosition(symbol, readPosition(), context)
@@ -2332,6 +2607,8 @@
           bias,
           signalTier,
           pulse15,
+          reversal,
+          evidenceGrade,
           confidence,
           risk_level: risk,
           regime,
@@ -2438,6 +2715,14 @@
           resolveSignals(symbol, k15);
           const model = historicalRuleTest(k15, k1, k4, btc1, btc4, symbol);
           model.featureStats = featureBacktest(k15, takerRatio);
+          model.compositeOos = compositeOosReplay(
+            k15,
+            k1,
+            k4,
+            btc1,
+            btc4,
+            symbol,
+          );
           const saved = loadMemory();
           saved.models[symbol] = model;
           saveMemory(saved);
@@ -2517,6 +2802,10 @@
           alert("Entry ve SL alanlarını doldur.");
           return;
         }
+        if ($("posStopConfirmed").value !== "YES") {
+          alert("Önce SL emrinin borsada gerçekten kurulu olduğunu doğrula.");
+          return;
+        }
         if (!$("posTime").value) {
           const n = new Date(
             Date.now() - new Date().getTimezoneOffset() * 60000,
@@ -2531,10 +2820,12 @@
           "posEntry",
           "posStop",
           "posTarget",
+          "posLiqPrice",
           "posBalance",
           "posTime",
         ])
           $(id).value = "";
+        $("posStopConfirmed").value = "NO";
         manageMode = false;
         try {
           localStorage.removeItem("position_tracker_v8");
