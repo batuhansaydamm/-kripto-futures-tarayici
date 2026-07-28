@@ -10,6 +10,8 @@ const bool = (name, fallback) =>
 export const config = Object.freeze({
   baseUrl:
     process.env.BINANCE_BASE_URL || "https://testnet.binancefuture.com",
+  marketDataBaseUrl:
+    process.env.MARKET_DATA_BASE_URL || "https://fapi.binance.com",
   apiKey: process.env.BINANCE_API_KEY || "",
   apiSecret: process.env.BINANCE_API_SECRET || "",
   dashboardToken: process.env.DASHBOARD_TOKEN || "",
@@ -31,6 +33,12 @@ export function validateConfig() {
   if (url.hostname !== "testnet.binancefuture.com") {
     throw new Error(
       "Bu sürüm yalnız Binance Futures Testnet adresinde çalışır; canlı endpoint kilitli.",
+    );
+  }
+  const marketUrl = new URL(config.marketDataBaseUrl);
+  if (marketUrl.hostname !== "fapi.binance.com") {
+    throw new Error(
+      "Piyasa verisi yalnız resmi Binance Futures public endpoint'inden alınabilir.",
     );
   }
   if (config.leverage !== 10)
