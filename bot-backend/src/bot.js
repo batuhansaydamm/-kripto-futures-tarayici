@@ -8,6 +8,8 @@ export class TradingBot {
     this.store = store;
     this.config = config;
     this.busy = false;
+    this.lastScanAttemptAt = 0;
+    this.marketCooldownUntil = 0;
   }
 
   limitsOkay() {
@@ -77,7 +79,24 @@ export class TradingBot {
 
   async cycle({ forceScan = false } = {}) {
     if (this.busy) return { skipped: true, reason: "Cycle zaten çalışıyor" };
+    const now = Date.now();
+    if (now < this.marketCooldownUntil)
+      return {
+        skipped: true,
+        reason: `Binance public veri bekleme süresi: ${new Date(
+          this.marketCooldownUntil,
+        ).toLocaleString("tr-TR")}`,
+      };
+    if (
+      this.lastScanAttemptAt &&
+      now - this.lastScanAttemptAt < this.config.scanIntervalMs
+    )
+      return {
+        skipped: true,
+        reason: "Yeni tarama en fazla 15 dakikada bir çalıştırılabilir.",
+      };
     this.busy = true;
+    this.lastScanAttemptAt = now;
     try {
       await this.reconcile();
       const [allowed, reason] = this.limitsOkay();
@@ -126,6 +145,12 @@ export class TradingBot {
       await this.store.save();
       return { candidate, trade, executed: trade.proofLevel !== "DRY_RUN" };
     } catch (error) {
+      if (error.status === 418 || error.code === -1003) {
+        const timestamp = String(error.message).match(/\b\d{13}\b/)?.[0];
+        this.marketCooldownUntil = timestamp
+          ? Number(timestamp)
+          : Date.now() + 60 * 60 * 1000;
+      }
       this.store.state.lastError = error.message;
       this.store.event("CYCLE_ERROR", {
         message: error.message,
