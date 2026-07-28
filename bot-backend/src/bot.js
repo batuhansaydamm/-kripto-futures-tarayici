@@ -10,6 +10,7 @@ export class TradingBot {
     this.store = store;
     this.config = config;
     this.busy = false;
+    this.reconcilePromise = null;
     this.lastScanAttemptAt = 0;
     this.marketCooldownUntil = 0;
   }
@@ -32,6 +33,16 @@ export class TradingBot {
   }
 
   async reconcile() {
+    if (this.reconcilePromise) return this.reconcilePromise;
+    this.reconcilePromise = this.reconcileOnce();
+    try {
+      return await this.reconcilePromise;
+    } finally {
+      this.reconcilePromise = null;
+    }
+  }
+
+  async reconcileOnce() {
     const trade = this.store.state.openTrade;
     if (!trade || trade.proofLevel === "DRY_RUN") return;
     await this.client.syncTime();
@@ -58,6 +69,7 @@ export class TradingBot {
                   symbol: trade.symbol,
                   kind: outcome.kind,
                   newStopPrice: outcome.newStopPrice || null,
+                  newTargetPrice: outcome.newTargetPrice || null,
                 });
               }
             } catch (actionError) {
