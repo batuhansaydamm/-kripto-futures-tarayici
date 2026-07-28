@@ -212,6 +212,13 @@ export class BinanceClient {
       { signed: true },
     );
   }
+  cancelOrder(symbol, orderId) {
+    return this.delete(
+      "/fapi/v1/order",
+      { symbol, orderId },
+      { signed: true },
+    );
+  }
 }
 
 export function floorToStep(value, step) {

@@ -10,6 +10,8 @@ Bu servis V13.2 Fırsat Radarı kurallarını gerçek Binance USDⓈ-M herkese a
 - Girişten sonra gerçek `STOP_MARKET closePosition=true` emri doğrulanamazsa pozisyon acil market emriyle kapatılır.
 - Toplam 5 işlem ve aynı anda 1 pozisyon sınırı kalıcı state içinde tutulur.
 - Peş peşe 2 zarar veya günlük zarar limiti kill switch'i tetikler.
+- **Açık pozisyon izleme**: her 60 saniyede bir sembolün 15D+1S trendi, BTC bağlamı ve OI değişimi yeniden değerlendirilir.
+- **Otomatik yönetim aksiyonu** (`MANAGEMENT_ENABLED=true`, varsayılan açık): stop yalnız sıkılaştırılır (breakeven → +1R), asla gevşetilmez; yapı ciddi şekilde bozulursa pozisyon erken kapatılır. Stop güncellemesi sırasında yeni emir başarısız olursa pozisyon korumasız kalmaz, otomatik acil kapatılır. `MANAGEMENT_ENABLED=false` yaparsan bot yalnız izler, hiçbir emri değiştirmez/kapatmaz — sinyaller yine `state.openTrade.managementSignal` altında görünür.
 
 ## Çalıştırma
 

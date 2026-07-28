@@ -1,4 +1,6 @@
 import { executeProtectedTrade } from "./execution.js";
+import { applyManagementAction } from "./manage.js";
+import { evaluatePosition } from "./monitor.js";
 import { scanBestCandidate } from "./radar.js";
 
 export class TradingBot {
@@ -38,6 +40,46 @@ export class TradingBot {
       trade.markPrice = Number(position.markPrice || 0);
       trade.unrealizedPnl = Number(position.unRealizedProfit || 0);
       trade.lastReconciledAt = Date.now();
+      try {
+        const signal = await evaluatePosition(this.marketClient, trade, position);
+        trade.managementSignal = signal;
+        if (signal.ok && signal.action !== "HOLD") {
+          this.store.event("POSITION_MONITOR", {
+            symbol: trade.symbol,
+            action: signal.action,
+            reason: signal.reason,
+            rNow: signal.rNow,
+          });
+          if (this.config.managementEnabled) {
+            try {
+              const outcome = await applyManagementAction(this.client, trade, signal);
+              if (outcome.acted) {
+                this.store.event("MANAGEMENT_ACTION", {
+                  symbol: trade.symbol,
+                  kind: outcome.kind,
+                  newStopPrice: outcome.newStopPrice || null,
+                });
+              }
+            } catch (actionError) {
+              this.store.state.killSwitch = true;
+              this.store.state.killReason = `Yönetim aksiyonu başarısız: ${actionError.message}`;
+              this.store.state.enabled = false;
+              this.store.event("MANAGEMENT_ACTION_FAILED", {
+                symbol: trade.symbol,
+                message: actionError.message,
+                emergency: actionError.emergency || null,
+              });
+            }
+          }
+        }
+      } catch (monitorError) {
+        trade.managementSignal = {
+          ok: false,
+          action: "HOLD",
+          reason: `İzleme hatası: ${monitorError.message}`,
+          evaluatedAt: Date.now(),
+        };
+      }
       await this.store.save();
       return;
     }
