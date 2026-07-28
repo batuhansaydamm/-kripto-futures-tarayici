@@ -2,8 +2,12 @@
 <html lang="tr">
   <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Tarayıcı</title>
+    <!-- Mobile-hosted V13 scanner -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -699,14 +703,14 @@
       <div class="tape-wrap"><div class="tape" id="tape"></div></div>
       <header class="header">
         <div class="eyebrow">
-          V12.3 · Doğrulanmış Fill Fırsat Radarı + 2 Saatlik Yol Analizi
+          V13.2 · Structure & Execution Engine · HTF Bariyer + OOS Kademeli Test
         </div>
         <div class="title-row">
           <div>
-            <h1>Tarayıcı</h1>
+            <h1>Kripto Futures Tarayıcı</h1>
             <div class="sub">
-              Yapı, hacim, OI ve taker-flow ile güçlü sinyali ve teyit bekleyen
-              küçük starter fırsatını birbirinden ayırır.
+              Günlük/haftalık yapı, seans VWAP, hacim, OI ve taker-flow ile
+              hedef alanını ve uygulanabilir girişi birlikte sınar.
             </div>
           </div>
           <div class="key-btn ready">ANAHTARSIZ ✓</div>
@@ -810,9 +814,9 @@
         <div class="radar-summary" id="radarSummary"></div>
         <div class="radar-grid" id="radarGrid"></div>
         <div class="radar-disclaimer">
-          Radar herkese açık Binance Futures verisiyle deneysel aday üretir. Planlar üretildiği anda kilitlenir.
-          İki saat içinde direkt stop, +%1/+%2 sonrası stop veya +%3 kapanış yollarını ayrı ölçer.
-          Sonuçlar gerçek emir, komisyon veya garanti edilmiş getiri değildir.
+          Radar herkese açık Binance Futures verisiyle deneysel aday üretir. İlk fill ve ilk stop üretildiği anda kilitlenir;
+          +%1 sonrasında +%0,15, +%2 sonrasında +%1 kâr-koruma seviyesi etkinleşir.
+          Gösterilen skor olasılık değildir; sonuçlar gerçek emir, komisyon veya garanti edilmiş getiri değildir.
         </div>
       </section>
       <footer class="footer">
@@ -824,11 +828,13 @@
       </footer>
     </main>
     <script>
+      document.title = "Tarayıcı";
       const $ = (id) => document.getElementById(id),
         body = $("body"),
         input = $("coinInput"),
         btn = $("scanBtn");
       let manageMode = false;
+      const ENGINE_VERSION = "V13.2_STRUCTURE_EXECUTION";
       const terms = [
         "SPRING",
         "SOS",
@@ -875,7 +881,7 @@
       function render(d) {
         const c = Math.max(0, Math.min(10, Number(d.confidence) || 0)) * 10,
           m = d.memory || {};
-        body.innerHTML = `<div class="result"><div class="result-top"><div><div class="coin">${esc(d.coin || "—")}</div><div class="mono">${esc(d.current_price_context || "")}</div></div><div class="mono asof">${esc(d.as_of || "")}</div></div><div class="badges"><div class="badge ${biasClass(d.bias)}">${biasLabel(d.bias)}</div><div class="badge ${riskClass(d.risk_level)}">RİSK: ${esc(d.risk_level || "—")}</div><div class="badge neutral">SETUP: ${esc(d.setup || "—")}</div><div class="badge neutral">REJİM: ${esc(d.regime || "—")}</div><div class="badge neutral">VOLUME: ${esc(d.volumeRegime || "—")}</div><div class="badge neutral">TİP: ${esc(d.tradeType || "—")}</div></div><div class="action">${esc(d.action || "")}</div><div class="plan"><div><small>ENTRY / RECLAIM BÖLGESİ</small><strong>${esc(d.entry || "—")}</strong></div><div><small>15D TEYİT</small><strong>${esc(d.trigger || "—")}</strong></div><div><small>DERİN / İDEAL</small><strong>${esc(d.deepEntry || "—")}</strong></div><div><small>STOP</small><strong>${esc(d.stop || "—")}</strong></div><div><small>TP1</small><strong>${esc(d.tp1 || "—")}</strong></div><div><small>TP2</small><strong>${esc(d.tp2 || "—")}</strong></div><div><small>R/R</small><strong>${esc(d.rr || "—")}</strong></div><div><small>ENTRY UZAKLIĞI</small><strong>${esc(d.entryDistance || "—")}</strong></div><div><small>HAREKET KALİTESİ</small><strong>${esc(d.moveQuality || "—")}</strong></div><div><small>TP1 TAHMİNİ</small><strong>${esc(d.targetEta || "—")}</strong></div><div><small>SETUP ÖMRÜ</small><strong>${esc(d.setupLife || "—")}</strong></div><div><small>YÖNETİM MODU</small><strong>${esc(d.managementMode || "—")}</strong></div></div><div class="conf"><div class="conf-label">Kalibre uyum</div><div class="track"><div class="fill" style="width:${c}%;background:var(--purple)"></div></div><div class="mono">${esc(d.confidence ?? "—")}/10</div></div><ul class="reasons">${(Array.isArray(d.reasons) ? d.reasons : []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul><div class="caution"><b>Dikkat:</b> ${esc(d.caution || "")}</div><div class="memory"><div class="memory-title">V9 GİRİŞ SİNYALİ TEST BELLEĞİ · ${esc(m.symbol || "")}</div><div class="memory-grid"><div><b>${esc(m.samples ?? 0)}</b>çakışmayan işlem</div><div><b>%${esc(m.winRate ?? "—")}</b>net başarı</div><div><b>${esc(m.expectancy ?? "—")}R</b>net beklenti</div><div><b>${esc(m.profitFactor ?? "—")}</b>profit factor</div><div><b>%${esc(m.wilson ?? "—")}</b>güven alt sınırı</div><div><b>${esc(m.maxDD ?? "—")}R</b>maks. düşüş</div><div><b>${esc(m.resolved ?? 0)}</b>sanal sonuç</div><div><b>${esc(m.liveWinRate ?? "—")}</b>sanal başarı</div></div><div class="memory-note">${esc(m.note || "")}</div><div class="history">${esc(m.lastSignals || "Henüz sonuçlanmış sanal sinyal yok.")}</div></div></div>`;
+        body.innerHTML = `<div class="result"><div class="result-top"><div><div class="coin">${esc(d.coin || "—")}</div><div class="mono">${esc(d.current_price_context || "")}</div></div><div class="mono asof">${esc(d.as_of || "")}</div></div><div class="badges"><div class="badge ${biasClass(d.bias)}">${biasLabel(d.bias)}</div><div class="badge ${riskClass(d.risk_level)}">RİSK: ${esc(d.risk_level || "—")}</div><div class="badge neutral">SETUP: ${esc(d.setup || "—")}</div><div class="badge neutral">AİLE: ${esc(d.setupFamily || "—")}</div><div class="badge neutral">REJİM: ${esc(d.regime || "—")}</div><div class="badge neutral">VOLUME: ${esc(d.volumeRegime || "—")}</div><div class="badge neutral">TİP: ${esc(d.tradeType || "—")}</div></div><div class="action">${esc(d.action || "")}</div><div class="plan"><div><small>ENTRY / RECLAIM BÖLGESİ</small><strong>${esc(d.entry || "—")}</strong></div><div><small>15D TEYİT</small><strong>${esc(d.trigger || "—")}</strong></div><div><small>DERİN / İDEAL</small><strong>${esc(d.deepEntry || "—")}</strong></div><div><small>STOP</small><strong>${esc(d.stop || "—")}</strong></div><div><small>TP1</small><strong>${esc(d.tp1 || "—")}</strong></div><div><small>TP2</small><strong>${esc(d.tp2 || "—")}</strong></div><div><small>R/R</small><strong>${esc(d.rr || "—")}</strong></div><div><small>HEDEF DAYANAĞI</small><strong>${esc(d.targetBasis || "—")}</strong></div><div><small>ENTRY UZAKLIĞI</small><strong>${esc(d.entryDistance || "—")}</strong></div><div><small>HAREKET KALİTESİ</small><strong>${esc(d.moveQuality || "—")}</strong></div><div><small>TP1 TAHMİNİ</small><strong>${esc(d.targetEta || "—")}</strong></div><div><small>SETUP ÖMRÜ</small><strong>${esc(d.setupLife || "—")}</strong></div><div><small>YÖNETİM MODU</small><strong>${esc(d.managementMode || "—")}</strong></div></div><div class="conf"><div class="conf-label">Kural uyumu</div><div class="track"><div class="fill" style="width:${c}%;background:var(--purple)"></div></div><div class="mono">${esc(d.confidence ?? "—")}/10 · olasılık değildir</div></div><ul class="reasons">${(Array.isArray(d.reasons) ? d.reasons : []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul><div class="caution"><b>Dikkat:</b> ${esc(d.caution || "")}</div><div class="memory"><div class="memory-title">V13.2 KANIT DEFTERİ · ${esc(m.symbol || "")}</div><div class="memory-grid"><div><b>${esc(m.samples ?? 0)}</b>çakışmayan işlem</div><div><b>%${esc(m.winRate ?? "—")}</b>tarihsel erişim</div><div><b>${esc(m.expectancy ?? "—")}R</b>net beklenti</div><div><b>${esc(m.profitFactor ?? "—")}</b>profit factor</div><div><b>%${esc(m.wilson ?? "—")}</b>güven alt sınırı</div><div><b>${esc(m.maxDD ?? "—")}R</b>maks. düşüş</div><div><b>${esc(m.resolved ?? 0)}</b>sanal sonuç</div><div><b>${esc(m.liveWinRate ?? "—")}</b>sanal erişim</div></div><div class="memory-note">${esc(m.note || "")}</div><div class="history">${esc(m.lastSignals || "Henüz sonuçlanmış sanal sinyal yok.")}</div></div></div>`;
       }
       const renderCore = render;
       render = function (d) {
@@ -896,7 +902,7 @@
         if (confLabel) confLabel.textContent = "Kural uyumu";
         const memoryTitle = body.querySelector(".memory-title");
         if (memoryTitle)
-          memoryTitle.textContent = `V11 KANIT DEFTERİ · ${d.memory?.symbol || ""}`;
+          memoryTitle.textContent = `V13.2 KANIT DEFTERİ · ${d.memory?.symbol || ""}`;
         const plan = body.querySelector(".plan");
         if (plan && d.reversal?.active)
           plan.insertAdjacentHTML(
@@ -905,28 +911,75 @@
           );
         renderPosition(d.position);
       };
-      const API = "https://fapi.binance.com";
+      const API_ENDPOINTS = [
+        (path) => `/api/binance?path=${encodeURIComponent(path)}`,
+        (path) => `https://fapi.binance.com${path}`,
+      ];
+      let preferredApiEndpoint = 0;
+      const fetchWithTimeout = async (url, timeoutMs = 14000) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          return await fetch(url, {
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+      };
       const get = async (path, attempt = 0) => {
-        const r = await fetch(API + path);
-        if (
-          (r.status === 429 || r.status === 418 || r.status >= 500) &&
-          attempt < 3
-        ) {
-          const retryAfter = Number(r.headers.get("Retry-After")) || 0;
-          await pause(
-            Math.max(retryAfter * 1000, 700 * 2 ** attempt) +
-              Math.random() * 250,
-          );
+        let lastError = null;
+        const order = [
+          preferredApiEndpoint,
+          ...API_ENDPOINTS.map((_, index) => index).filter(
+            (index) => index !== preferredApiEndpoint,
+          ),
+        ];
+
+        for (const endpointIndex of order) {
+          try {
+            const r = await fetchWithTimeout(
+              API_ENDPOINTS[endpointIndex](path),
+            );
+            if (r.ok) {
+              preferredApiEndpoint = endpointIndex;
+              return r.json();
+            }
+
+            let message = "";
+            try {
+              message = (await r.json()).msg || "";
+            } catch {}
+
+            if (
+              r.status !== 418 &&
+              r.status !== 429 &&
+              r.status < 500
+            ) {
+              throw new Error(message || `Binance API HTTP ${r.status}`);
+            }
+            lastError = new Error(
+              message || `Binance API HTTP ${r.status}`,
+            );
+          } catch (error) {
+            lastError = error;
+          }
+        }
+
+        if (attempt < 2) {
+          await pause(800 * 2 ** attempt + Math.random() * 250);
           return get(path, attempt + 1);
         }
-        if (!r.ok) {
-          let m = "";
-          try {
-            m = (await r.json()).msg || "";
-          } catch {}
-          throw new Error(m || `Binance API HTTP ${r.status}`);
-        }
-        return r.json();
+
+        const detail =
+          lastError?.name === "AbortError"
+            ? "bağlantı zaman aşımına uğradı"
+            : lastError?.message || "ağ isteği tamamlanamadı";
+        throw new Error(
+          `Binance verisine ulaşılamadı (${detail}). Radar 15 dakika sonra otomatik yeniden deneyecek.`,
+        );
       };
       const ema = (a, n) => {
         const k = 2 / (n + 1);
@@ -974,9 +1027,9 @@
           open: o[i],
           high: h[i],
           low: l[i],
-          ema7: ema(c.slice(-50), 7),
-          ema25: ema(c.slice(-80), 25),
-          ema50: ema(c.slice(-120), 50),
+          ema7: ema(c.slice(-80), 7),
+          ema25: ema(c.slice(-160), 25),
+          ema50: ema(c.slice(-250), 50),
           atr: avg(tr.slice(-14)),
           volRatio: base ? v[i] / base : 0,
           volRatio4: base ? recent / base : 0,
@@ -1316,9 +1369,148 @@
           recent,
         };
       }
-      function calibratedTargets(model, rows, side, entry, risk) {
-        const rates = model?.reachRates || {},
-          n = model?.samples || 0,
+      function utcMarketLevels(k15, k1, k4) {
+        const closed15 = k15.filter((x) => +x[6] < Date.now()),
+          closed1 = k1.filter((x) => +x[6] < Date.now()),
+          closed4 = k4.filter((x) => +x[6] < Date.now()),
+          latest = +(closed15.at(-1)?.[0] || Date.now()),
+          dayMs = 86400000,
+          dayStart = Math.floor(latest / dayMs) * dayMs,
+          prevDayStart = dayStart - dayMs,
+          weekStart =
+            dayStart -
+            ((new Date(dayStart).getUTCDay() + 6) % 7) * dayMs,
+          prevWeekStart = weekStart - 7 * dayMs,
+          between = (rows, start, end) =>
+            rows.filter((x) => +x[0] >= start && +x[0] < end),
+          aggregate = (rows) =>
+            rows.length
+              ? {
+                  open: +rows[0][1],
+                  high: Math.max(...rows.map((x) => +x[2])),
+                  low: Math.min(...rows.map((x) => +x[3])),
+                }
+              : null,
+          currentDay = between(closed15, dayStart, dayStart + dayMs),
+          previousDay = aggregate(
+            between(closed1, prevDayStart, dayStart),
+          ),
+          currentWeek = aggregate(
+            between(closed4, weekStart, weekStart + 7 * dayMs),
+          ),
+          previousWeek = aggregate(
+            between(closed4, prevWeekStart, weekStart),
+          ),
+          baseVolume = currentDay.reduce((s, x) => s + +x[5], 0),
+          quoteVolume = currentDay.reduce((s, x) => s + +x[7], 0);
+        return {
+          dailyOpen: currentDay.length ? +currentDay[0][1] : 0,
+          sessionVwap: baseVolume ? quoteVolume / baseVolume : 0,
+          previousDay,
+          weeklyOpen: currentWeek?.open || 0,
+          previousWeek,
+        };
+      }
+      function structuralBarriers(k15, k1, k4, side, entry, risk, atr) {
+        if (!risk || !atr) return [];
+        const closed = k15
+            .filter((x) => +x[6] < Date.now())
+            .slice(-96),
+          levels = utcMarketLevels(k15, k1, k4),
+          tolerance = Math.max(atr * 0.16, entry * 0.0008),
+          touchCount = (price) =>
+            closed.filter(
+              (x) =>
+                Math.abs(+x[2] - price) <= tolerance ||
+                Math.abs(+x[3] - price) <= tolerance,
+            ).length,
+          candidates = [],
+          add = (price, label, baseScore) => {
+            price = Number(price);
+            if (!price || side * (price - entry) <= 0) return;
+            const distanceR = (side * (price - entry)) / risk,
+              touches = touchCount(price),
+              score = baseScore + Math.min(3, touches);
+            if (distanceR >= 0.2 && distanceR <= 3.5)
+              candidates.push({ price, label, distanceR, touches, score });
+          };
+        add(levels.dailyOpen, "Günlük açılış", 2);
+        add(levels.sessionVwap, "UTC seans VWAP", 2);
+        add(levels.previousDay?.high, "Önceki gün yüksek", 3);
+        add(levels.previousDay?.low, "Önceki gün düşük", 3);
+        add(levels.weeklyOpen, "Haftalık açılış", 3);
+        add(levels.previousWeek?.high, "Önceki hafta yüksek", 4);
+        add(levels.previousWeek?.low, "Önceki hafta düşük", 4);
+        for (let i = 2; i < closed.length - 2; i++) {
+          const high = +closed[i][2],
+            low = +closed[i][3],
+            swingHigh =
+              high >= +closed[i - 1][2] &&
+              high >= +closed[i - 2][2] &&
+              high >= +closed[i + 1][2] &&
+              high >= +closed[i + 2][2],
+            swingLow =
+              low <= +closed[i - 1][3] &&
+              low <= +closed[i - 2][3] &&
+              low <= +closed[i + 1][3] &&
+              low <= +closed[i + 2][3];
+          if (side > 0 && swingHigh) add(high, "15D swing direnci", 1);
+          if (side < 0 && swingLow) add(low, "15D swing desteği", 1);
+        }
+        return candidates
+          .filter(
+            (item, index, all) =>
+              all.findIndex(
+                (x) => Math.abs(x.price - item.price) <= tolerance,
+              ) === index,
+          )
+          .sort((a, b) => a.distanceR - b.distanceR);
+      }
+      function levelImportance(rows, level, atr) {
+        const closed = rows
+            .filter((x) => +x[6] < Date.now())
+            .slice(-80, -1),
+          tolerance = Math.max(atr * 0.14, level * 0.0008),
+          touched = closed.filter(
+            (x) =>
+              Math.abs(+x[2] - level) <= tolerance ||
+              Math.abs(+x[3] - level) <= tolerance,
+          ),
+          rejected = touched.filter((x) => {
+            const range = Math.max(+x[2] - +x[3], Number.EPSILON),
+              upper = +x[2] - Math.max(+x[1], +x[4]),
+              lower = Math.min(+x[1], +x[4]) - +x[3];
+            return Math.max(upper, lower) / range >= 0.3;
+          }).length,
+          avgVolume = avg(closed.slice(-20).map((x) => +x[5])) || 1,
+          defendedVolume =
+            touched.length
+              ? avg(touched.map((x) => +x[5])) / avgVolume
+              : 0,
+          score =
+            Math.min(3, touched.length) +
+            Math.min(2, rejected) +
+            (defendedVolume >= 1.35 ? 1 : 0);
+        return {
+          score,
+          touches: touched.length,
+          rejected,
+          defendedVolume,
+        };
+      }
+      function deriveHistoricalTargets(
+        model,
+        rows,
+        k1,
+        k4,
+        side,
+        entry,
+        risk,
+        atr,
+      ) {
+        const rates =
+            model?.compositeOos?.historicalHitFrequency || {},
+          n = model?.compositeOos?.n || 0,
           levels = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5],
           choose = (minimumRate, fallback) =>
             n >= 20
@@ -1328,23 +1520,30 @@
         let safeR = 1,
           mainR = 1.5,
           runnerR = Math.max(2, Math.min(2.5, choose(25, 2)));
-        const closed = rows.filter((r) => +r[6] < Date.now()).slice(-48),
-          candidates =
-            side > 0
-              ? closed
-                  .map((r) => +r[2])
-                  .filter((v) => v > entry + risk * 0.3)
-                  .sort((a, b) => a - b)
-              : closed
-                  .map((r) => +r[3])
-                  .filter((v) => v < entry - risk * 0.3)
-                  .sort((a, b) => b - a),
-          barrier = candidates[0] || 0,
-          barrierR = barrier ? (side * (barrier - entry)) / risk : 0;
-        // Geçmiş MFE hedefi küçültmez; yalnız erişim olasılığı üretir.
-        // 1R öncesindeki yakın engel varsa işlem kalitesi ayrıca uyarılır.
-        safeR = 1;
-        mainR = 1.5;
+        const barriers = structuralBarriers(
+            rows,
+            k1,
+            k4,
+            side,
+            entry,
+            risk,
+            atr,
+          ),
+          barrier =
+            barriers.find((x) => x.score >= 3 && x.distanceR < 1.15) ||
+            null,
+          barrierR = barrier?.distanceR || 0,
+          blockingBarrier = !!(barrier && barrierR < 0.45);
+        if (barrier && barrierR >= 0.45 && barrierR < 1.05)
+          safeR = Math.max(0.35, +(barrierR * 0.86).toFixed(2));
+        const secondBarrier = barriers.find(
+          (x) => x.score >= 3 && x.distanceR > safeR + 0.25,
+        );
+        if (secondBarrier && secondBarrier.distanceR < 1.55)
+          mainR = Math.max(
+            safeR + 0.3,
+            +(secondBarrier.distanceR * 0.88).toFixed(2),
+          );
         runnerR = Math.max(2, runnerR);
         const price = (r) => entry + side * risk * r;
         return {
@@ -1354,15 +1553,19 @@
           tp1: price(safeR),
           tp2: price(mainR),
           runner: price(runnerR),
-          safeReach:
+          safeHistoricalHitPct:
             n >= 20 ? (rates[String(safeR)] ?? rates[safeR] ?? null) : null,
-          mainReach:
+          mainHistoricalHitPct:
             n >= 20 ? (rates[String(mainR)] ?? rates[mainR] ?? null) : null,
-          runnerReach:
+          runnerHistoricalHitPct:
             n >= 20 ? (rates[String(runnerR)] ?? rates[runnerR] ?? null) : null,
           samples: n,
-          barrier,
+          barrier: barrier?.price || 0,
           barrierR,
+          barrierLabel: barrier?.label || "",
+          barrierScore: barrier?.score || 0,
+          blockingBarrier,
+          barriers: barriers.slice(0, 5),
           winnerMae80: model?.winnerMae80 || 0,
         };
       }
@@ -1490,14 +1693,138 @@
           100
         );
       }
-      function historicalRuleTest(k15, k1, k4, btc1, btc4, symbol) {
+      function oiChangeThrough(rows, closeTime, periods = 4) {
+        const usable = (Array.isArray(rows) ? rows : [])
+          .filter((x) => Number(x.timestamp) <= Number(closeTime))
+          .slice(-(periods + 1));
+        if (usable.length < 2) return null;
+        const first = Number(usable[0].sumOpenInterest),
+          last = Number(usable.at(-1).sumOpenInterest);
+        return first > 0 && Number.isFinite(last)
+          ? ((last / first) - 1) * 100
+          : null;
+      }
+      function momentumExpansionCheck(
+        m,
+        side,
+        oiChangePct,
+        bos,
+        bosImportance = 0,
+      ) {
+        const bodyRatio = m.range
+            ? Math.abs(m.close - m.open) / m.range
+            : 0,
+          closeLocation = m.range ? (m.close - m.low) / m.range : 0.5,
+          distance7 = m.atr ? Math.abs(m.close - m.ema7) / m.atr : 0,
+          directionalBody =
+            side > 0 ? m.close > m.open : m.close < m.open,
+          closeAccepted =
+            side > 0 ? closeLocation >= 0.75 : closeLocation <= 0.25,
+          oiConfirmed =
+            Number.isFinite(oiChangePct) && oiChangePct >= 0.75;
+        return {
+          active:
+            !!bos &&
+            directionalBody &&
+            distance7 > 1.2 &&
+            m.volRatio >= 1.8 &&
+            bodyRatio >= 0.65 &&
+            closeAccepted &&
+            oiConfirmed &&
+            bosImportance >= 2,
+          bodyRatio,
+          closeLocation,
+          distance7,
+          oiChangePct,
+          bosImportance,
+        };
+      }
+      function executionCostPct(setupFamily) {
+        return setupFamily === "MOMENTUM"
+          ? 0.14
+          : setupFamily === "REVERSAL"
+            ? 0.11
+            : 0.08;
+      }
+      function simulateStagedTrade(
+        rows,
+        start,
+        end,
+        side,
+        entry,
+        stop,
+        runnerR = 2.5,
+      ) {
+        const risk = Math.abs(entry - stop);
+        let remaining = 1,
+          realizedR = 0,
+          stage = 0,
+          mfe = 0,
+          mae = 0,
+          exit = end,
+          result = "TIMEOUT";
+        const targets = [
+          { r: 1, fraction: 0.3, label: "TP1" },
+          { r: 1.5, fraction: 0.3, label: "TP2" },
+          { r: runnerR, fraction: 0.4, label: "RUNNER" },
+        ];
+        for (let j = start; j <= end; j++) {
+          const hi = +rows[j][2],
+            lo = +rows[j][3],
+            favorable = side > 0 ? hi - entry : entry - lo,
+            adverse = side > 0 ? entry - lo : hi - entry;
+          mfe = Math.max(mfe, favorable / risk);
+          mae = Math.max(mae, adverse / risk);
+          const activeStopR = stage >= 2 ? 1 : stage >= 1 ? 0 : -1,
+            activeStop = entry + side * risk * activeStopR,
+            stopHit = side > 0 ? lo <= activeStop : hi >= activeStop;
+          if (stopHit) {
+            realizedR += remaining * activeStopR;
+            remaining = 0;
+            result =
+              stage >= 2
+                ? "STOP_AFTER_TP2"
+                : stage >= 1
+                  ? "STOP_AFTER_TP1"
+                  : "LOSS";
+            exit = j;
+            break;
+          }
+          while (stage < targets.length) {
+            const target = entry + side * risk * targets[stage].r,
+              hit = side > 0 ? hi >= target : lo <= target;
+            if (!hit) break;
+            realizedR += targets[stage].fraction * targets[stage].r;
+            remaining -= targets[stage].fraction;
+            result = targets[stage].label;
+            stage++;
+          }
+          if (stage === targets.length) {
+            exit = j;
+            break;
+          }
+          if (j === end && remaining > 0) {
+            const closeR = Math.max(
+              stage >= 2 ? 1 : stage >= 1 ? 0 : -1,
+              Math.min(
+                runnerR,
+                (side * (+rows[j][4] - entry)) / risk,
+              ),
+            );
+            realizedR += remaining * closeR;
+            remaining = 0;
+          }
+        }
+        return { grossR: realizedR, result, exit, mfe, mae, stage };
+      }
+      function historicalRuleTest(k15, k1, k4, btc1, btc4, oi15, symbol) {
         const a = k15.filter((x) => +x[6] < Date.now()),
           h1 = k1.filter((x) => +x[6] < Date.now()),
           h4 = k4.filter((x) => +x[6] < Date.now()),
           b1 = btc1.filter((x) => +x[6] < Date.now()),
           b4 = btc4.filter((x) => +x[6] < Date.now()),
           trades = [];
-        let i = 120;
+        let i = 200;
         const upto = (r, t) => r.filter((x) => +x[6] <= t),
           trend = (m) =>
             m.close > m.ema7 && m.ema7 > m.ema25 && m.ema25 > m.ema50
@@ -1513,10 +1840,10 @@
             wb1 = upto(b1, t),
             wb4 = upto(b4, t);
           if (
-            w1.length < 70 ||
-            w4.length < 70 ||
-            wb1.length < 70 ||
-            wb4.length < 70
+            w1.length < 160 ||
+            w4.length < 160 ||
+            wb1.length < 160 ||
+            wb4.length < 160
           ) {
             i++;
             continue;
@@ -1540,14 +1867,30 @@
             continue;
           }
           const dist = Math.abs(m15.close - m15.ema7) / m15.atr,
-            setup =
-              s15 === side && dist <= 0.9
+            bos = side > 0
+              ? m15.close > m15.prevHigh
+              : m15.close < m15.prevLow,
+            bosLevel = side > 0 ? m15.prevHigh : m15.prevLow,
+            bosQuality = levelImportance(wa, bosLevel, m15.atr),
+            oiChangePct = oiChangeThrough(oi15, t, 4),
+            momentum = momentumExpansionCheck(
+              m15,
+              side,
+              oiChangePct,
+              bos,
+              bosQuality.score,
+            ),
+            setup = momentum.active
+              ? "MOMENTUM_EXPANSION"
+              : s15 === side && dist <= 0.9
                 ? "SIĞ RETEST"
                 : dist > 1.4
                   ? "GERÇEKÇİ RETEST"
                   : "TEYİTLİ RETEST",
             maxGap = Math.min(m15.atr * 1.1, m15.close * 0.025);
-          let entry = m15.ema7;
+          let entry = momentum.active
+            ? m15.close - side * m15.atr * 0.2
+            : m15.ema7;
           if (Math.abs(m15.close - entry) > maxGap)
             entry = m15.close - side * maxGap;
           if (setup === "TEYİTLİ RETEST")
@@ -1563,13 +1906,10 @@
             i++;
             continue;
           }
-          const tp = entry + side * risk * 2.5;
-          let fill = -1,
-            exit = -1,
-            result = "",
-            mfe = 0,
-            mae = 0;
-          for (let j = i + 1; j <= Math.min(i + 6, a.length - 1); j++) {
+          const setupFamily = momentum.active ? "MOMENTUM" : "PULLBACK";
+          let fill = -1;
+          const fillWindow = momentum.active ? 3 : 6;
+          for (let j = i + 1; fill < 0 && j <= Math.min(i + fillWindow, a.length - 1); j++) {
             if (+a[j][2] >= entry && +a[j][3] <= entry) {
               fill = j;
               break;
@@ -1579,45 +1919,42 @@
             i += 2;
             continue;
           }
-          for (let j = fill; j <= Math.min(fill + 32, a.length - 1); j++) {
-            const hi = +a[j][2],
-              lo = +a[j][3],
-              fav = side > 0 ? hi - entry : entry - lo,
-              adv = side > 0 ? entry - lo : hi - entry;
-            mfe = Math.max(mfe, fav / risk);
-            mae = Math.max(mae, adv / risk);
-            const hs = side > 0 ? lo <= stop : hi >= stop,
-              ht = side > 0 ? hi >= tp : lo <= tp;
-            if (hs) {
-              result = "LOSS";
-              exit = j;
-              break;
-            }
-            if (ht) {
-              result = "WIN";
-              exit = j;
-              break;
-            }
-          }
-          if (!result) {
-            result = "TIMEOUT";
-            exit = Math.min(fill + 32, a.length - 1);
-          }
-          const gross =
-              result === "WIN"
-                ? 2.5
-                : result === "LOSS"
-                  ? -1
-                  : Math.max(
-                      -1,
-                      Math.min(2.5, (side * (+a[exit][4] - entry)) / risk),
-                    ),
-            net = gross - 0.08;
-          trades.push({ result, net, setup, side, mfe, mae });
+          const staged = simulateStagedTrade(
+              a,
+              fill,
+              Math.min(fill + 32, a.length - 1),
+              side,
+              entry,
+              stop,
+              2.5,
+            ),
+            result = staged.result,
+            exit = staged.exit,
+            gross = staged.grossR,
+            estimatedRoundTripCostPct = executionCostPct(setupFamily),
+            estimatedCostR =
+              risk > 0
+                ? ((estimatedRoundTripCostPct / 100) * entry) / risk
+                : 0,
+            net = gross - estimatedCostR;
+          trades.push({
+            result,
+            net,
+            setup,
+            setupFamily,
+            side,
+            mfe: staged.mfe,
+            mae: staged.mae,
+            oiChangePct,
+            volumeRatio: m15.volRatio,
+            bodyRatio: momentum.bodyRatio,
+            estimatedRoundTripCostPct,
+            estimatedCostR: +estimatedCostR.toFixed(3),
+          });
           i = exit + 1;
         }
-        const wins = trades.filter((x) => x.result === "WIN").length,
-          losses = trades.filter((x) => x.result === "LOSS").length,
+        const wins = trades.filter((x) => x.net > 0).length,
+          losses = trades.filter((x) => x.net < 0).length,
           samples = trades.length,
           wr = samples ? (wins / samples) * 100 : 0,
           exp = samples ? avg(trades.map((x) => x.net)) : 0,
@@ -1645,9 +1982,21 @@
             k,
             { n: v.n, exp: +(v.r / v.n).toFixed(2) },
           ]),
+        ),
+          familyGroups = {};
+        for (const x of trades) {
+          familyGroups[x.setupFamily] ??= { n: 0, r: 0 };
+          familyGroups[x.setupFamily].n++;
+          familyGroups[x.setupFamily].r += x.net;
+        }
+        const setupFamilyStats = Object.fromEntries(
+          Object.entries(familyGroups).map(([k, v]) => [
+            k,
+            { n: v.n, exp: +(v.r / v.n).toFixed(2) },
+          ]),
         );
         const reachLevels = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5],
-          reachRates = Object.fromEntries(
+          historicalHitFrequency = Object.fromEntries(
             reachLevels.map((r) => [
               r,
               samples
@@ -1678,7 +2027,8 @@
           wilson: +wilson(wins, samples).toFixed(1),
           maxDD: +dd.toFixed(2),
           setupStats,
-          reachRates,
+          setupFamilyStats,
+          historicalHitFrequency,
           winnerMae80: +winnerMae80.toFixed(2),
           testType: "KRONOLOJİK SABİT-KURAL TESTİ",
           testedAt: Date.now(),
@@ -1694,7 +2044,7 @@
           h4 = k4.filter((x) => +x[6] < Date.now()),
           b1 = btc1.filter((x) => +x[6] < Date.now()),
           b4 = btc4.filter((x) => +x[6] < Date.now()),
-          start = Math.max(140, Math.floor(a.length * 0.7)),
+          start = Math.max(220, Math.floor(a.length * 0.7)),
           outcomes = [],
           upto = (r, t) => r.filter((x) => +x[6] <= t),
           trend = (m) =>
@@ -1710,7 +2060,7 @@
             w4 = upto(h4, t),
             wb1 = upto(b1, t),
             wb4 = upto(b4, t);
-          if ([w1, w4, wb1, wb4].some((r) => r.length < 70)) continue;
+          if ([w1, w4, wb1, wb4].some((r) => r.length < 160)) continue;
           const m = metrics(wa),
             m1 = metrics(w1),
             m4 = metrics(w4),
@@ -1749,32 +2099,42 @@
             (side > 0 ? stop >= entry : stop <= entry)
           )
             continue;
-          const target = entry + side * risk * 1.5;
-          let net = 0;
-          for (let j = i + 1; j <= Math.min(i + 24, a.length - 1); j++) {
-            const hi = +a[j][2],
-              lo = +a[j][3],
-              hitStop = side > 0 ? lo <= stop : hi >= stop,
-              hitTarget = side > 0 ? hi >= target : lo <= target;
-            if (hitStop || hitTarget) {
-              net = (hitStop ? -1 : 1.5) - 0.08;
-              i = j;
-              break;
-            }
-            if (j === Math.min(i + 24, a.length - 1))
-              net = Math.max(
-                -1,
-                Math.min(1.5, (side * (+a[j][4] - entry)) / risk),
-              ) - 0.08;
-          }
-          outcomes.push(net);
+          const staged = simulateStagedTrade(
+              a,
+              i + 1,
+              Math.min(i + 24, a.length - 1),
+              side,
+              entry,
+              stop,
+              2.5,
+            ),
+            estimatedCostR =
+              ((executionCostPct("PULLBACK") / 100) * entry) / risk;
+          outcomes.push({
+            net: staged.grossR - estimatedCostR,
+            mfe: staged.mfe,
+          });
+          i = staged.exit;
         }
         const n = outcomes.length,
-          wins = outcomes.filter((x) => x > 0).length,
-          expectancy = n ? avg(outcomes) : 0,
-          gp = outcomes.filter((x) => x > 0).reduce((s, x) => s + x, 0),
+          values = outcomes.map((x) => x.net),
+          wins = values.filter((x) => x > 0).length,
+          expectancy = n ? avg(values) : 0,
+          gp = values.filter((x) => x > 0).reduce((s, x) => s + x, 0),
           gl = Math.abs(
-            outcomes.filter((x) => x < 0).reduce((s, x) => s + x, 0),
+            values.filter((x) => x < 0).reduce((s, x) => s + x, 0),
+          ),
+          reachLevels = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5],
+          historicalHitFrequency = Object.fromEntries(
+            reachLevels.map((r) => [
+              r,
+              n
+                ? +(
+                    (outcomes.filter((x) => x.mfe >= r).length / n) *
+                    100
+                  ).toFixed(1)
+                : 0,
+            ]),
           );
         return {
           n,
@@ -1783,8 +2143,9 @@
           wilson: +wilson(wins, n).toFixed(1),
           expectancy: +expectancy.toFixed(2),
           profitFactor: +(gl ? gp / gl : gp ? 99 : 0).toFixed(2),
+          historicalHitFrequency,
           note:
-            "Son %30 kronolojik bölümde çekirdek kompozit replay; ağırlıklar optimize edilmedi ve geliştirme sürecinden tamamen bağımsız/untouched değildir.",
+            "Son %30 kronolojik bölümde, 30/30/40 kademeli çıkış ve maliyet sonrası çekirdek replay; ağırlıklar optimize edilmedi ve tamamen bağımsız/untouched değildir.",
         };
       }
       function featureBacktest(k15, taker) {
@@ -1860,63 +2221,295 @@
         "MISSED",
         "EXPIRED",
         "PASSED",
+        "INVALIDATED_BEFORE_TRIGGER",
+        "TRIGGERED_NOT_FILLED",
+        "AMBIGUOUS",
       ]);
+      function setupFamilyFor(setup, flags = {}) {
+        if (flags.reversal || flags.sweep) return "REVERSAL";
+        if (
+          flags.momentum ||
+          String(setup || "").includes("MOMENTUM_EXPANSION")
+        )
+          return "MOMENTUM";
+        if (String(setup || "").includes("RETEST")) return "PULLBACK";
+        return "UNCLASSIFIED";
+      }
+      function pathExcursion(side, entry, high, low, unit = entry) {
+        const long = side === "LONG" || side > 0;
+        const divisor = Math.max(Math.abs(unit), Number.EPSILON);
+        return {
+          favorable: Math.max(
+            0,
+            (long ? high - entry : entry - low) / divisor,
+          ),
+          adverse: Math.max(
+            0,
+            (long ? entry - low : high - entry) / divisor,
+          ),
+        };
+      }
+      function sameBarPathConflict(stopHit, newlyReached) {
+        return !!(stopHit && newlyReached);
+      }
+      function addSignalEvent(s, type, at, price, extra = {}) {
+        s.eventSequence ??= [];
+        const previous = s.eventSequence.at(-1);
+        if (previous?.type === type && previous?.at === at) return;
+        s.eventSequence.push({ type, at, price: Number(price) || 0, ...extra });
+        s.eventSequence = s.eventSequence.slice(-80);
+      }
+      function signalCosts(s, exitAt) {
+        const durationMs = Math.max(0, (exitAt || Date.now()) - (s.filled || s.time));
+        const fundingPeriods = Math.floor(durationMs / (8 * 60 * 60 * 1000));
+        const entryFeePct = Number(s.entryFeePct ?? 0.04);
+        const exitFeePct = Number(s.exitFeePct ?? 0.04);
+        const spreadCostPct = Number(s.spreadPctAtSignal || 0) / 2;
+        const estimatedSlippagePct = Number(s.estimatedSlippagePct ?? 0.02);
+        const signedFundingPct =
+          fundingPeriods * Number(s.fundingAtSignal || 0) * (s.side > 0 ? 1 : -1);
+        return {
+          entryFeePct,
+          exitFeePct,
+          spreadCostPct,
+          estimatedSlippagePct,
+          fundingPeriods,
+          fundingCostPct: signedFundingPct,
+          totalCostPct:
+            entryFeePct +
+            exitFeePct +
+            spreadCostPct +
+            estimatedSlippagePct +
+            signedFundingPct,
+        };
+      }
+      function finalizeSignal(s, status, at, exitPrice, source) {
+        s.status = status;
+        s.closed = at;
+        s.exitPrice = Number(exitPrice) || 0;
+        s.exitPriceSource = source || "";
+        if (!s.filled) {
+          s.costs = null;
+          s.grossReturnPct = null;
+          s.netReturnPct = null;
+          s.grossR = null;
+          s.netR = null;
+          addSignalEvent(s, status, at, s.exitPrice, { source });
+          return;
+        }
+        const riskPct = s.entry ? (Math.abs(s.entry - s.stop) / s.entry) * 100 : 0;
+        const grossReturnPct =
+          s.exitPrice && s.entry
+            ? (s.side > 0
+                ? s.exitPrice / s.entry - 1
+                : s.entry / s.exitPrice - 1) * 100
+            : 0;
+        const costs = signalCosts(s, at);
+        s.costs = costs;
+        s.grossReturnPct = +grossReturnPct.toFixed(4);
+        s.netReturnPct = +(grossReturnPct - costs.totalCostPct).toFixed(4);
+        s.grossR = riskPct ? +(grossReturnPct / riskPct).toFixed(3) : null;
+        s.netR = riskPct ? +(s.netReturnPct / riskPct).toFixed(3) : null;
+        addSignalEvent(s, status, at, s.exitPrice, {
+          source,
+          grossR: s.grossR,
+          netR: s.netR,
+        });
+        if (status === "STOP" || status === "STOP_AFTER_TP1") {
+          s.postStopTracking = {
+            startedAt: at,
+            until: at + 6 * 60 * 60 * 1000,
+            lastCheckedAt: at,
+            maxRecoveryPct: 0,
+            maxFurtherAdversePct: 0,
+            reclaimedEntryAt: null,
+            reachedP1At: null,
+            reachedP2At: null,
+          };
+        }
+      }
+      function updatePostStopShadow(s, rows) {
+        const shadow = s.postStopTracking;
+        if (!shadow || shadow.completedAt) return;
+        const applicable = rows.filter(
+          (x) => +x[0] > shadow.lastCheckedAt && +x[0] <= shadow.until,
+        );
+        for (const x of applicable) {
+          const at = +x[6], hi = +x[2], lo = +x[3];
+          const favorablePct = Math.max(
+            0,
+            (s.side > 0 ? hi / s.entry - 1 : s.entry / lo - 1) * 100,
+          );
+          const adversePct = Math.max(
+            0,
+            (s.side > 0 ? 1 - lo / s.entry : hi / s.entry - 1) * 100,
+          );
+          shadow.maxRecoveryPct = Math.max(shadow.maxRecoveryPct, favorablePct);
+          shadow.maxFurtherAdversePct = Math.max(
+            shadow.maxFurtherAdversePct,
+            adversePct,
+          );
+          if (
+            !shadow.reclaimedEntryAt &&
+            (s.side > 0 ? hi >= s.entry : lo <= s.entry)
+          )
+            shadow.reclaimedEntryAt = at;
+          if (!shadow.reachedP1At && (s.side > 0 ? hi >= s.tp1 : lo <= s.tp1))
+            shadow.reachedP1At = at;
+          if (!shadow.reachedP2At && (s.side > 0 ? hi >= s.tp2 : lo <= s.tp2))
+            shadow.reachedP2At = at;
+          shadow.lastCheckedAt = at;
+        }
+        if (Date.now() >= shadow.until || shadow.lastCheckedAt >= shadow.until) {
+          shadow.completedAt = Math.min(Date.now(), shadow.until);
+          addSignalEvent(s, "POST_STOP_SHADOW_COMPLETE", shadow.completedAt, 0, {
+            maxRecoveryPct: +shadow.maxRecoveryPct.toFixed(4),
+            reclaimedEntry: !!shadow.reclaimedEntryAt,
+          });
+        }
+      }
+      function processSignalPathBar(s, x) {
+        const open = +x[0], closeAt = +x[6], hi = +x[2], lo = +x[3], close = +x[4];
+        if (s.lastProcessedClose && closeAt <= s.lastProcessedClose) return;
+        s.lastProcessedClose = closeAt;
+        const long = s.side > 0;
+        const stopSeen = long ? lo <= s.stop : hi >= s.stop;
+        const p1Seen = long ? hi >= s.tp1 : lo <= s.tp1;
+        const p2Seen = long ? hi >= s.tp2 : lo <= s.tp2;
+        const entryHit = hi >= s.entryLow && lo <= s.entryHigh;
+        const triggerPass = long
+          ? close >= s.triggerLevel
+          : close <= s.triggerLevel;
+
+        if (s.status === "CANDIDATE") {
+          if (stopSeen) {
+            finalizeSignal(
+              s,
+              "INVALIDATED_BEFORE_TRIGGER",
+              closeAt,
+              s.stop,
+              "15M_PATH",
+            );
+            return;
+          }
+          if (!triggerPass) return;
+          s.status = "ARMED";
+          s.armedAt = closeAt;
+          s.fillExpiresAt = closeAt + 90 * 60 * 1000;
+          addSignalEvent(s, "ARMED", closeAt, close);
+        }
+        if (s.status === "ARMED") {
+          if (open > s.fillExpiresAt) {
+            finalizeSignal(s, "TRIGGERED_NOT_FILLED", closeAt, close, "TIMEOUT");
+            return;
+          }
+          if (!entryHit && p1Seen) {
+            finalizeSignal(s, "MISSED", closeAt, close, "MOVE_WITHOUT_FILL");
+            return;
+          }
+          if (!entryHit && stopSeen) {
+            finalizeSignal(
+              s,
+              "INVALIDATED_BEFORE_TRIGGER",
+              closeAt,
+              s.stop,
+              "15M_PATH",
+            );
+            return;
+          }
+          if (!entryHit) return;
+          if (p1Seen || stopSeen) {
+            finalizeSignal(s, "AMBIGUOUS", closeAt, 0, "SAME_15M_BAR");
+            return;
+          }
+          s.status = "FILLED";
+          s.filled = open;
+          s.exitExpiresAt = open + 8 * 60 * 60 * 1000;
+          addSignalEvent(s, "FILLED", open, s.entry);
+        }
+        if (s.status !== "FILLED" && s.status !== "TP1") return;
+        const risk = Math.abs(s.entry - s.stop);
+        const excursion = pathExcursion(s.side, s.entry, hi, lo, risk),
+          favorableR = excursion.favorable,
+          adverseR = excursion.adverse;
+        s.maxFavorableR = Math.max(s.maxFavorableR || 0, favorableR);
+        s.maxAdverseR = Math.max(s.maxAdverseR || 0, adverseR);
+        if (!s.tp1Hit) s.maeBeforeP1R = Math.max(s.maeBeforeP1R || 0, adverseR);
+        if (!s.tp2Hit) s.maeBeforeP2R = Math.max(s.maeBeforeP2R || 0, adverseR);
+        const newlyReached = (!s.tp1Hit && p1Seen) || (!s.tp2Hit && p2Seen);
+        if (sameBarPathConflict(stopSeen, newlyReached)) {
+          finalizeSignal(s, "AMBIGUOUS", closeAt, 0, "SAME_15M_BAR");
+          return;
+        }
+        if (stopSeen) {
+          finalizeSignal(
+            s,
+            s.tp1Hit ? "STOP_AFTER_TP1" : "STOP",
+            closeAt,
+            s.stop,
+            "15M_PATH",
+          );
+          return;
+        }
+        if (p2Seen) {
+          s.tp1Hit = true;
+          s.tp2Hit = true;
+          s.tp1At ||= closeAt;
+          s.tp2At = closeAt;
+          addSignalEvent(s, "TP1", s.tp1At, s.tp1, {
+            maeBeforeP1R: s.maeBeforeP1R || 0,
+          });
+          finalizeSignal(s, "TP2", closeAt, s.tp2, "15M_PATH");
+          return;
+        }
+        if (p1Seen && !s.tp1Hit) {
+          s.tp1Hit = true;
+          s.tp1At = closeAt;
+          s.status = "TP1";
+          addSignalEvent(s, "TP1", closeAt, s.tp1, {
+            maeBeforeP1R: s.maeBeforeP1R || 0,
+          });
+        }
+        if (s.exitExpiresAt && open > s.exitExpiresAt)
+          finalizeSignal(s, "EXPIRED", closeAt, close, "TIMEOUT_CLOSE");
+      }
       function resolveSignals(symbol, rows) {
         const mem = loadMemory(),
           closed = rows.filter((x) => +x[6] < Date.now());
         for (const s of mem.signals) {
-          if (s.symbol !== symbol || TERMINAL.has(s.status)) continue;
-          const future = closed.filter((x) => +x[0] > s.time);
-          for (const x of future) {
-            const open = +x[0],
-              close = +x[6],
-              hi = +x[2],
-              lo = +x[3];
-            if (s.status === "WAITING_ENTRY") {
-              if (open > s.entryExpiresAt) {
-                s.status = "MISSED";
-                s.closed = s.entryExpiresAt;
-                break;
-              }
-              if (hi >= s.entry && lo <= s.entry) {
-                s.status = "FILLED";
-                s.filled = open;
-                s.exitExpiresAt = open + 8 * 60 * 60 * 1000;
-              } else continue;
-            }
-            const hitStop = s.side > 0 ? lo <= s.stop : hi >= s.stop,
-              hitTp2 = s.side > 0 ? hi >= s.tp2 : lo <= s.tp2,
-              hitTp1 = s.side > 0 ? hi >= s.tp1 : lo <= s.tp1;
-            if (hitStop) {
-              s.status = s.tp1Hit ? "STOP_AFTER_TP1" : "STOP";
-              s.closed = close;
-              break;
-            }
-            if (hitTp2) {
-              s.status = "TP2";
-              s.tp1Hit = true;
-              s.closed = close;
-              break;
-            }
-            if (hitTp1) {
-              s.tp1Hit = true;
-              s.status = "TP1";
-            }
-            if (s.exitExpiresAt && open > s.exitExpiresAt) {
-              s.status = "EXPIRED";
-              s.closed = s.exitExpiresAt;
-              break;
-            }
+          if (s.symbol !== symbol) continue;
+          if (TERMINAL.has(s.status)) {
+            updatePostStopShadow(s, closed);
+            continue;
           }
-          if (s.status === "WAITING_ENTRY" && Date.now() > s.entryExpiresAt)
-            s.status = "MISSED";
+          if (s.status === "WAITING_ENTRY") {
+            s.status = "CANDIDATE";
+            s.engineVersion ||= "LEGACY_MIGRATED";
+            s.setupFamily ||= setupFamilyFor(s.setup);
+            s.triggerLevel ||= s.entry;
+            s.candidateExpiresAt ||= s.entryExpiresAt || s.time + 90 * 60 * 1000;
+            s.eventSequence ||= [
+              { type: "CANDIDATE", at: s.time, price: s.entry },
+            ];
+          }
+          const future = closed.filter(
+            (x) => +x[6] > (s.lastProcessedClose || s.time),
+          );
+          for (const x of future) {
+            processSignalPathBar(s, x);
+            if (TERMINAL.has(s.status)) break;
+          }
+          if (s.status === "CANDIDATE" && Date.now() > s.candidateExpiresAt)
+            finalizeSignal(s, "EXPIRED", Date.now(), 0, "NO_TRIGGER");
+          if (s.status === "ARMED" && Date.now() > s.fillExpiresAt)
+            finalizeSignal(s, "TRIGGERED_NOT_FILLED", Date.now(), 0, "NO_FILL");
           if (
             (s.status === "FILLED" || s.status === "TP1") &&
             Date.now() > s.exitExpiresAt
           )
-            s.status = "EXPIRED";
+            finalizeSignal(s, "EXPIRED", Date.now(), 0, "TIMEOUT");
         }
-        mem.signals = mem.signals.slice(-150);
+        mem.signals = mem.signals.slice(-300);
         saveMemory(mem);
         return mem;
       }
@@ -1930,7 +2523,9 @@
             .at(-1);
         if (last) return;
         mem.signals.push({
-          engine: "V10_LOCKED_PLAN",
+          engineVersion: ENGINE_VERSION,
+          signalId: `${symbol}_${Date.now()}_${d._raw.side > 0 ? "L" : "S"}`,
+          cohortId: `C${Math.floor(Date.now() / (15 * 60 * 1000))}`,
           symbol,
           time: Date.now(),
           side: d._raw.side,
@@ -1957,13 +2552,50 @@
             signalTier: d.signalTier,
           },
           setup: d.setup,
+          setupFamily: d.setupFamily || "UNCLASSIFIED",
+          starterFraction: d._raw.starterFraction ?? 1,
+          addFraction: d._raw.addFraction ?? 0,
+          addLevel: d._raw.addLevel || 0,
           tradeType: d.tradeType,
           volumeRegime: d.volumeRegime,
-          status: "WAITING_ENTRY",
-          entryExpiresAt: Date.now() + 90 * 60 * 1000,
+          regime: d.regime,
+          evidenceGrade: d.evidenceGrade,
+          ruleConformanceScore: d.confidence,
+          btcAligned: d._context?.btcAligned ?? null,
+          btcTrend: d._context?.btc || 0,
+          fundingAtSignal: d._context?.funding || 0,
+          oiChangeAtSignal: d._context?.oiChg || 0,
+          takerRatioAtSignal: d._context?.flow?.ratio ?? null,
+          bookImbalanceAtSignal: d._context?.book?.imbalance ?? null,
+          spreadPctAtSignal: d._context?.book?.spreadPct ?? null,
+          entryFeePct:
+            d.setupFamily === "MOMENTUM" ? 0.05 : 0.02,
+          exitFeePct: 0.04,
+          estimatedSlippagePct:
+            d.setupFamily === "MOMENTUM"
+              ? 0.05
+              : d.setupFamily === "REVERSAL"
+                ? 0.035
+                : 0.015,
+          executionAssumption:
+            d.setupFamily === "MOMENTUM"
+              ? "LIMIT_PULLBACK_OR_TAKER_FALLBACK"
+              : "RESTING_LIMIT",
+          dataQuality: d._context?.dataQuality || "COMPLETE",
+          triggerLevel: d._raw.triggerLevel || d._raw.entry,
+          status: "CANDIDATE",
+          candidateExpiresAt: Date.now() + 90 * 60 * 1000,
           tp1Hit: false,
+          tp2Hit: false,
+          maxFavorableR: 0,
+          maxAdverseR: 0,
+          maeBeforeP1R: 0,
+          maeBeforeP2R: 0,
+          eventSequence: [
+            { type: "CANDIDATE", at: Date.now(), price: d._context?.price || 0 },
+          ],
         });
-        mem.signals = mem.signals.slice(-150);
+        mem.signals = mem.signals.slice(-300);
         saveMemory(mem);
       }
       function lockedSignal(symbol) {
@@ -1980,7 +2612,9 @@
           s = mem.signals
             .filter(
               (x) =>
-                x.symbol === symbol && x.status === "WAITING_ENTRY" && x.plan,
+                x.symbol === symbol &&
+                ["CANDIDATE", "ARMED"].includes(x.status) &&
+                x.plan,
             )
             .at(-1);
         if (!s || !d?._context?.price) return false;
@@ -2033,6 +2667,7 @@
         Object.assign(d, {
           bias: s.side > 0 ? "LONG" : "SHORT",
           setup: s.setup,
+          setupFamily: s.setupFamily,
           entry: p.entry,
           trigger: p.trigger,
           deepEntry: p.deepEntry,
@@ -2063,7 +2698,7 @@
           d.bias = "NO_TRADE";
           d.signalTier = conflict ? "ESKİ YÖN İPTAL ADAYI" : "PLAN ASKIDA";
         }
-        if (s.status === "WAITING_ENTRY") {
+        if (s.status === "CANDIDATE" || s.status === "ARMED") {
           d.action = conflict
             ? `⛔ KİLİTLİ PLAN İPTAL ADAYI: yeni analiz ters yöne döndü; entry emrini yeniden değerlendir`
             : weakened
@@ -2087,6 +2722,10 @@
           tp1: s.tp1,
           tp2: s.tp2,
           runner: s.runner,
+          triggerLevel: s.triggerLevel || s.entry,
+          starterFraction: s.starterFraction ?? 1,
+          addFraction: s.addFraction ?? 0,
+          addLevel: s.addLevel || 0,
         };
         return d;
       }
@@ -2096,10 +2735,19 @@
           wins = done.filter((x) => x.status === "TP2").length,
           last = all
             .slice(-4)
-            .map((x) => `${x.setup}: ${x.status}`)
+            .map(
+              (x) =>
+                `${x.setupFamily || "—"}/${x.setup}: ${x.status}` +
+                `${Number.isFinite(x.maeBeforeP1R) ? ` · pre-P1 MAE ${x.maeBeforeP1R.toFixed(2)}R` : ""}` +
+                `${Number.isFinite(x.netR) ? ` · net ${x.netR.toFixed(2)}R` : ""}` +
+                `${x.postStopTracking?.completedAt ? ` · stop sonrası reclaim ${x.postStopTracking.reclaimedEntryAt ? "EVET" : "HAYIR"}` : ""}`,
+            )
             .join(" · "),
           setups = Object.entries(model.setupStats || {})
             .map(([k, v]) => `${k} ${v.n} işlem / ${v.exp}R`)
+            .join(" · "),
+          setupFamilies = Object.entries(model.setupFamilyStats || {})
+            .map(([k, v]) => `${k} n${v.n} / ${v.exp}R`)
             .join(" · "),
           features = Object.entries(model.featureStats || {})
             .map(
@@ -2123,13 +2771,14 @@
           lastSignals: [
             `Kompozit: ${oos.note || "hesaplanamadı"}`,
             features,
+            setupFamilies,
             setups,
             last,
           ]
             .filter(Boolean)
             .join(" | "),
           note:
-            "V11 ÇEKİRDEK KOMPOZİT OOS REPLAY · Son %30 kronolojik bölüm. Ağırlıklar optimize edilmedi; tamamen untouched test değildir. Sanal günlük gerçek emri izlemez ve kayıt yalnız bu cihazdadır.",
+            "V13.2 KRONOLOJİK KANIT DEFTERİ · Yüzdeler olasılık değil yalnız OOS geçmiş erişim sıklığıdır. n<20 yetersiz örnektir. Backtest 30/30/40 kademeli çıkış ve setup-aile maliyetlerini kullanır. Kayıt yalnız bu cihazdadır.",
         };
       }
       function readPosition() {
@@ -2326,7 +2975,8 @@
           y = metrics(btc4),
           price = +premium.markPrice || +ticker.lastPrice,
           chg = +ticker.priceChangePercent,
-          funding = +premium.lastFundingRate * 100;
+          funding = +premium.lastFundingRate * 100,
+          htfLevels = utcMarketLevels(k15, k1, k4);
         const trend = (m) =>
           m.close > m.ema7 && m.ema7 > m.ema25 && m.ema25 > m.ema50
             ? 1
@@ -2341,6 +2991,9 @@
           reversal = reversalShadow(k15, a, b, price);
         let score = t4 * 3 + t1 * 2 + t15,
           reasons = [];
+        reasons.push(
+          `HTF: günlük açılış ${fmt(htfLevels.dailyOpen)} · seans VWAP ${fmt(htfLevels.sessionVwap)} · önceki gün H/L ${fmt(htfLevels.previousDay?.high)} / ${fmt(htfLevels.previousDay?.low)} · haftalık açılış ${fmt(htfLevels.weeklyOpen)}`,
+        );
         reasons.push(`${pulse15.note} · gölge katman, yön puanını değiştirmez`);
         if (t4 === t1 && t1)
           reasons.unshift(
@@ -2361,14 +3014,20 @@
         const bullBos = a.close > a.prevHigh,
           bearBos = a.close < a.prevLow,
           bullSweep = a.low < a.prevLow && a.close > a.prevLow,
-          bearSweep = a.high > a.prevHigh && a.close < a.prevHigh;
+          bearSweep = a.high > a.prevHigh && a.close < a.prevHigh,
+          bullBosQuality = levelImportance(k15, a.prevHigh, a.atr),
+          bearBosQuality = levelImportance(k15, a.prevLow, a.atr);
         if (bullBos) {
-          score += 1;
-          reasons.push("15D önceki yapı tepesinin üzerinde BOS kapanışı");
+          score += bullBosQuality.score >= 3 ? 1.5 : 0.5;
+          reasons.push(
+            `15D BOS yukarı · seviye önemi ${bullBosQuality.score}/6 · ${bullBosQuality.touches} temas`,
+          );
         }
         if (bearBos) {
-          score -= 1;
-          reasons.push("15D önceki yapı dibinin altında BOS kapanışı");
+          score -= bearBosQuality.score >= 3 ? 1.5 : 0.5;
+          reasons.push(
+            `15D BOS aşağı · seviye önemi ${bearBosQuality.score}/6 · ${bearBosQuality.touches} temas`,
+          );
         }
         if (bullSweep) {
           score += 2;
@@ -2409,6 +3068,15 @@
         reasons.push(
           `OI yaklaşık %${oiChg.toFixed(2)} ${oiChg >= 0 ? "arttı" : "azaldı"}`,
         );
+        const oiParticipationBreak =
+          (score > 0 && chg >= 20 && oiChg <= -10) ||
+          (score < 0 && chg <= -20 && oiChg <= -10);
+        if (oiParticipationBreak) {
+          score -= Math.sign(score) * 4;
+          reasons.push(
+            `OI–fiyat ayrışması: fiyat 24s %${chg.toFixed(1)} hareket ederken OI %${oiChg.toFixed(1)} çöktü; hareket yeni katılımdan çok pozisyon kapanışı/squeeze karakterinde`,
+          );
+        }
         if (Math.abs(funding) >= 0.05) {
           score += funding > 0 ? -1 : 1;
           reasons.push(`Funding %${funding.toFixed(4)}: kalabalık taraf riski`);
@@ -2508,29 +3176,74 @@
           liquidityBlocked = quoteVolume > 0 && quoteVolume < 1000000,
           liquidityThin = quoteVolume >= 1000000 && quoteVolume < 3000000,
           spreadBlocked = book.valid && book.spreadPct > 0.4,
-          regime =
-            atrPct > 3
+          quantRegime = radarAdxRegime(k15),
+          regime = quantRegime.valid
+            ? `${quantRegime.regime} · ADX ${quantRegime.adx} · CHOP ${quantRegime.chop}`
+            : atrPct > 3
               ? "YÜKSEK VOLATİLİTE"
               : t4 === t1 && t1
                 ? "TREND"
                 : !t4 && !t1
                   ? "RANGE"
                   : "GEÇİŞ";
-        const signalTier =
+        const oiMomentum1h = oiChangeThrough(
+            oi15,
+            k15.at(-1)?.[6] || Date.now(),
+            4,
+          ),
+          longMomentum = momentumExpansionCheck(
+            a,
+            1,
+            oiMomentum1h,
+            bullBos,
+            bullBosQuality.score,
+          ),
+          shortMomentum = momentumExpansionCheck(
+            a,
+            -1,
+            oiMomentum1h,
+            bearBos,
+            bearBosQuality.score,
+          ),
+          momentumSide =
+            longMomentum.active && t1 > 0 && t4 > 0
+              ? 1
+              : shortMomentum.active && t1 < 0 && t4 < 0
+                ? -1
+                : 0,
+          momentumExpansion =
+            momentumSide > 0
+              ? longMomentum
+              : momentumSide < 0
+                ? shortMomentum
+                : null;
+        let signalTier =
           Math.abs(score) >= 6
             ? "GÜÇLÜ"
             : Math.abs(score) >= 4
               ? "STARTER / TEYİTLİ"
               : "YOK";
-        let bias = score >= 4 ? "LONG" : score <= -4 ? "SHORT" : "NO_TRADE",
+        let bias = momentumSide
+            ? momentumSide > 0
+              ? "LONG"
+              : "SHORT"
+            : score >= 4
+              ? "LONG"
+              : score <= -4
+                ? "SHORT"
+                : "NO_TRADE",
           side = bias === "LONG" ? 1 : bias === "SHORT" ? -1 : 0,
           dist = Math.abs(price - a.ema7) / a.atr,
           setup = "BELİRSİZ",
           action = "⏸ Net edge yok — işlem açma",
           entry = "—";
-        // Safety overlay: this does not create a counter-trend short by itself.
-        // It only blocks a late long during a parabolic/volume-climax phase, or
-        // after a live high-volume breakdown. A short still needs a failed retest.
+        if (momentumSide) {
+          signalTier = "MOMENTUM STARTER";
+          reasons.push(
+            `Momentum expansion: kapanışla BOS · hacim ${a.volRatio.toFixed(2)}x · gövde %${(momentumExpansion.bodyRatio * 100).toFixed(0)} · 1s OI %${Number(oiMomentum1h).toFixed(2)}`,
+          );
+        }
+        // V13 safety overlay yalnız mevcut yönü veto eder; kendi başına ters yön üretmez.
         const extension25 = a.atr ? (price - a.ema25) / a.atr : 0,
           recentAdvanceAtr =
             k15.length >= 6 && a.atr
@@ -2546,25 +3259,71 @@
             recentAdvanceAtr >= 2.75 &&
             chg >= 12 &&
             volumeAcceleration >= 1.65,
+          parabolicShortRisk =
+            price < a.ema25 &&
+            extension25 <= -2.35 &&
+            recentAdvanceAtr <= -2.75 &&
+            chg <= -12 &&
+            volumeAcceleration >= 1.65,
           liveDumpBreak =
             pulse15.direction < 0 &&
             pulse15.bodyAtr >= 0.65 &&
             pulse15.projectedRatio >= 1.65 &&
             price < a.ema7 &&
             (price < a.ema25 || pulse15.closeLocation <= 0.2),
+          livePumpBreak =
+            pulse15.direction > 0 &&
+            pulse15.bodyAtr >= 0.65 &&
+            pulse15.projectedRatio >= 1.65 &&
+            price > a.ema7 &&
+            (price > a.ema25 || pulse15.closeLocation >= 0.8),
+          quantExhaustion = radarExhaustion(k15,a),
+          rangeSpan = Math.max(a.high20-a.low20,Number.EPSILON),
+          rangeLocation = (price-a.low20)/rangeSpan,
+          rangeMidLock =
+            quantRegime.valid &&
+            quantRegime.regime === "REG-3 RANGE" &&
+            rangeLocation > .3 &&
+            rangeLocation < .7 &&
+            !bullSweep &&
+            !bearSweep &&
+            !bullBos &&
+            !bearBos,
           exhaustionLock =
-            bias === "LONG" && (parabolicLongRisk || liveDumpBreak);
+            (bias === "LONG" &&
+              (parabolicLongRisk || liveDumpBreak || quantExhaustion.longBlocked)) ||
+            (bias === "SHORT" &&
+              (parabolicShortRisk || livePumpBreak || quantExhaustion.shortBlocked));
         if (exhaustionLock) {
+          const blockedSide = bias;
           bias = "NO_TRADE";
           side = 0;
-          setup = liveDumpBreak ? "HACİMLİ KIRILMA" : "ALIM KLİMAKSI RİSKİ";
-          action = liveDumpBreak
-            ? "⛔ LONG İPTAL — hacimli yapı kırıldı; short için EMA7/25 retest-rejection bekle"
-            : "⛔ YENİ LONG AÇMA — parabolik uzama ve hacim klimaksı; kârı koru, yapı kurulmasını bekle";
+          signalTier = "V13 FİLTRELEDİ";
+          setup = "SİMETRİK EXHAUSTION / YAPI KIRILMASI";
+          action = blockedSide === "LONG"
+            ? "⛔ YENİ LONG AÇMA — uzama veya hacimli kırılma; yapı yeniden kurulmalı"
+            : "⛔ YENİ SHORT AÇMA — kapitülasyon veya hacimli reclaim; yapı yeniden kurulmalı";
           reasons.push(
-            liveDumpBreak
-              ? `Canlı 15D düşüş ${pulse15.bodyAtr.toFixed(2)} ATR · hacim hızı ${pulse15.projectedRatio.toFixed(2)}x; long yapısı kırıldı`
-              : `Parabolik uzama ${extension25.toFixed(2)} ATR · son hareket ${recentAdvanceAtr.toFixed(2)} ATR · hacim ${volumeAcceleration.toFixed(2)}x`,
+            `V13 simetrik veto: ${blockedSide} · EMA25 uzama ${extension25.toFixed(2)} ATR · impuls ${recentAdvanceAtr.toFixed(2)} ATR · hacim ${volumeAcceleration.toFixed(2)}x · ${quantExhaustion.label}`,
+          );
+        }
+        if (oiParticipationBreak) {
+          bias = "NO_TRADE";
+          side = 0;
+          signalTier = "V13 FİLTRELEDİ";
+          setup = "OI KATILIMI ÇÖKTÜ";
+          action =
+            "⛔ İşlem alma — fiyat hareketi yeni pozisyon katılımıyla doğrulanmıyor";
+        }
+        if (rangeMidLock) {
+          bias = "NO_TRADE";
+          side = 0;
+          signalTier = "V13 FİLTRELEDİ";
+          setup = "RANGE ORTASI";
+          action =
+            "⛔ Range ortasında işlem alma — sınır süpürmesi/rejection bekle";
+          reasons.push(
+            `Wilder ADX ${quantRegime.adx}, CHOP ${quantRegime.chop}; fiyat 20 mumluk aralığın %${(rangeLocation*100).toFixed(0)} konumunda`,
           );
         }
         const anomaly = a.range > a.atr * 6 || b.range > b.atr * 6;
@@ -2590,12 +3349,18 @@
         }
         let e = price,
           trigger = "—",
+          triggerLevel = 0,
           deepEntry = "—",
           entryDistance = "—";
         if (side) {
           const aligned = t4 === side && t1 === side,
             maxGap = Math.min(a.atr * 1.1, price * 0.025);
-          if (aligned && t15 === side && dist <= 0.9) {
+          if (momentumSide === side) {
+            setup = "MOMENTUM_EXPANSION";
+            action =
+              "🚀 BOS teyitli: tepeyi kovalamadan %20–25 starter limiti; %75–80 ekleme EMA7 retest + korunumda";
+            e = price - side * a.atr * 0.2;
+          } else if (aligned && t15 === side && dist <= 0.9) {
             setup = "SIĞ RETEST";
             action =
               "⚡ Starter düşünülebilir; kalan miktar gerçekçi EMA7 retestinde";
@@ -2613,13 +3378,21 @@
           }
           if (Math.abs(price - e) > maxGap) e = price - side * maxGap;
           entry = `${fmt(e - a.atr * 0.18)} – ${fmt(e + a.atr * 0.18)}`;
-          const triggerLevel =
-            side > 0 ? Math.max(a.ema7, a.close) : Math.min(a.ema7, a.close);
-          trigger =
-            side > 0
+          triggerLevel = momentumSide === side
+            ? side > 0
+              ? a.prevHigh
+              : a.prevLow
+            : side > 0
+              ? Math.max(a.ema7, a.close)
+              : Math.min(a.ema7, a.close);
+          trigger = momentumSide === side
+            ? `${fmt(triggerLevel)} ${side > 0 ? "üzeri" : "altı"} BOS kapanışı korundu`
+            : side > 0
               ? `${fmt(triggerLevel)} üzeri 15D kapanış/korunum`
               : `${fmt(triggerLevel)} altı 15D kapanış/korunum`;
-          deepEntry = `${fmt(a.ema25 - a.atr * 0.2)} – ${fmt(a.ema25 + a.atr * 0.2)}`;
+          deepEntry = momentumSide === side
+            ? `${fmt(a.ema7 - a.atr * 0.18)} – ${fmt(a.ema7 + a.atr * 0.18)} · %70 add`
+            : `${fmt(a.ema25 - a.atr * 0.2)} – ${fmt(a.ema25 + a.atr * 0.2)}`;
           entryDistance = `%${((Math.abs(price - e) / price) * 100).toFixed(2)} · ${(Math.abs(price - e) / a.atr).toFixed(2)} ATR`;
         }
         if (side && signalTier === "STARTER / TEYİTLİ") {
@@ -2656,7 +3429,18 @@
               ? localStop
               : wideStop,
           r = Math.abs(e - stop),
-          targets = side ? calibratedTargets(model, k15, side, e, r) : null,
+          targets = side
+            ? deriveHistoricalTargets(
+                model,
+                k15,
+                k1,
+                k4,
+                side,
+                e,
+                r,
+                a.atr,
+              )
+            : null,
           tp1 = targets?.tp1 || 0,
           tp2 = targets?.tp2 || 0,
           horizon = volumeHorizon(
@@ -2677,6 +3461,18 @@
           );
         if (side && horizon.tradeType === "SCALP")
           action += ` · ${horizon.managementMode}`;
+        if (side && targets?.blockingBarrier) {
+          reasons.unshift(
+            `⛔ ${targets.barrierLabel} yalnız ${targets.barrierR.toFixed(2)}R uzakta; maliyet sonrası alan yetersiz`,
+          );
+          bias = "NO_TRADE";
+          side = 0;
+          setup = "YAPISAL HEDEF ALANI YETERSİZ";
+          action =
+            "⛔ İşlem alma — ilk güçlü HTF/yapı engeli stop riskine göre fazla yakın";
+          entry = trigger = deepEntry = entryDistance = "—";
+          stop = tp1 = tp2 = 0;
+        }
         if (stopTooFar) {
           reasons.push(
             `Yerel 15D swing stopu uygulanabilir değil: ${(r / a.atr).toFixed(2)} ATR`,
@@ -2694,11 +3490,15 @@
           );
         if (side && targets)
           reasons.push(
-            `Kalibre hedef: TP1 ${targets.safeR.toFixed(2)}R · TP2 ${targets.mainR.toFixed(2)}R · runner ${fmt(targets.runner)} (${targets.runnerR.toFixed(2)}R)`,
+            `Sabit hedefler: TP1 ${targets.safeR.toFixed(2)}R · TP2 ${targets.mainR.toFixed(2)}R · runner ${fmt(targets.runner)} (${targets.runnerR.toFixed(2)}R); geçmiş sıklık olasılık değildir`,
           );
-        if (side && targets?.barrierR > 0.3 && targets.barrierR < 1)
+        if (side && targets?.samples >= 20)
           reasons.push(
-            `Yakın engel ${targets.barrierR.toFixed(2)}R mesafede; hedef küçültülmedi, setup kalitesi düşük kabul edilmeli`,
+            `Geçmiş n=${targets.samples} örnekte erişim sıklığı: TP1 %${Number(targets.safeHistoricalHitPct || 0).toFixed(1)} · TP2 %${Number(targets.mainHistoricalHitPct || 0).toFixed(1)} · istatistiksel olasılık değildir`,
+          );
+        if (side && targets?.barrierR >= 0.45 && targets.barrierR < 1.05)
+          reasons.push(
+            `${targets.barrierLabel} ${targets.barrierR.toFixed(2)}R mesafede; TP1 engelin önüne ${targets.safeR.toFixed(2)}R olarak çekildi`,
           );
         const crowded =
             (side > 0 && funding > 0.05) || (side < 0 && funding < -0.05),
@@ -2742,7 +3542,29 @@
         reasons.unshift(
           `Kompozit OOS replay: n${oos.n || 0} · ${Number(oos.expectancy || 0).toFixed(2)}R · Wilson %${Number(oos.wilson || 0).toFixed(1)} · kanıt ${evidenceGrade}`,
         );
-        const context = { price, a, b, t15, t1, t4, flow, book, funding },
+        const setupFamily = setupFamilyFor(setup, {
+            bos: side > 0 ? bullBos : bearBos,
+            sweep: side > 0 ? bullSweep : bearSweep,
+            momentum: momentumSide === side,
+            reversal:
+              setup.includes("EXHAUSTION") ||
+              (side > 0 ? bullSweep : bearSweep),
+          }),
+          context = {
+            price,
+            a,
+            b,
+            t15,
+            t1,
+            t4,
+            btc,
+            btcAligned: !btc || !side ? null : btc === side,
+            flow,
+            book,
+            funding,
+            oiChg,
+            dataQuality: "COMPLETE",
+          },
           position = manageMode
             ? managePosition(symbol, readPosition(), context)
             : null;
@@ -2759,6 +3581,7 @@
           risk_level: risk,
           regime,
           setup,
+          setupFamily,
           action,
           entry,
           trigger,
@@ -2772,18 +3595,30 @@
             side && targets
               ? `TP1: +${targets.safeR.toFixed(2)}R · TP2: +${targets.mainR.toFixed(2)}R · Stop: -1R`
               : "—",
+          targetBasis:
+            side && targets?.barrier
+              ? `${targets.barrierLabel} ${targets.barrierR.toFixed(2)}R · önem ${targets.barrierScore}/7`
+              : side
+                ? "Yakın güçlü HTF/yapı engeli yok · standart R planı"
+                : "—",
           volumeRegime: horizon.volumeRegime,
           moveQuality: horizon.moveQuality,
           tradeType: horizon.tradeType,
           targetEta: side ? horizon.targetEta : "—",
           setupLife: side ? horizon.setupLife : "—",
           managementMode:
-            side && targets
-              ? `%30 TP1 · %30 TP2 · %40 runner/trailing`
+            side && setupFamily === "MOMENTUM"
+              ? `%20–25 starter limit · %75–80 yalnız EMA7 retest + korunumda add · toplam risk bütçesi sabit`
+              : side && targets
+                ? `%30 TP1 · %30 TP2 · %40 runner · TP1 sonrası zarar stopuna dönüş yok`
               : horizon.managementMode,
           reasons: reasons.slice(0, 11),
           caution: exhaustionLock
-            ? "Parabolik/hacimli hareketlerde yön doğru olsa bile likidasyon ve kayma riski büyür. Yeni long kilitlidir; karşı yön ancak retest ve kapanış teyidiyle değerlendirilir."
+            ? "V13 exhaustion filtresi mevcut yönü veto etti; bu karşı yöne otomatik giriş değildir. Yeni yapı, retest ve kapanış teyidi gerekir."
+            : oiParticipationBreak
+              ? "Fiyat hareketi OI katılımıyla doğrulanmadı. Squeeze veya pozisyon kapanışı kaynaklı hareket kovalanmaz."
+              : rangeMidLock
+                ? "Range ortasında beklenen getiri/risk zayıftır. Yalnız sınır süpürmesi, rejection veya kabul edilmiş kırılım değerlendirilir."
             : side
             ? "Taktik stop yerel 15D swing içindir; yapısal iptal daha geniş bağlamdır. Süre tahmini kesin değildir. Kaldıraç sinyal gücü değildir; zarar da büyür. Kaybı karşılanabilir risk sermayesi kullan."
             : "Yön, likidite veya uygulanabilir stop oluşmadan FOMO ile pozisyon açma.",
@@ -2797,6 +3632,10 @@
             tp1,
             tp2,
             runner: targets?.runner || 0,
+            triggerLevel,
+            starterFraction: setupFamily === "MOMENTUM" ? 0.25 : 1,
+            addFraction: setupFamily === "MOMENTUM" ? 0.75 : 0,
+            addLevel: setupFamily === "MOMENTUM" ? a.ema7 : 0,
           },
           _context: context,
         };
@@ -2830,9 +3669,9 @@
               get(`/fapi/v1/openInterest?symbol=${q}`),
               get(`/fapi/v1/klines?symbol=${q}&interval=15m&limit=1000`),
               get(`/fapi/v1/klines?symbol=${q}&interval=1h&limit=300`),
-              get(`/fapi/v1/klines?symbol=${q}&interval=4h&limit=200`),
+              get(`/fapi/v1/klines?symbol=${q}&interval=4h&limit=300`),
               get("/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=300"),
-              get("/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=200"),
+              get("/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=300"),
             ]);
           const optional = await Promise.allSettled([
               get(
@@ -2859,7 +3698,15 @@
               "order book",
             ].filter((_, i) => optional[i].status === "rejected");
           resolveSignals(symbol, k15);
-          const model = historicalRuleTest(k15, k1, k4, btc1, btc4, symbol);
+          const model = historicalRuleTest(
+            k15,
+            k1,
+            k4,
+            btc1,
+            btc4,
+            oi15,
+            symbol,
+          );
           model.featureStats = featureBacktest(k15, takerRatio);
           model.compositeOos = compositeOosReplay(
             k15,
@@ -2893,6 +3740,20 @@
             d.reasons.push(
               `Eksik yan veri: ${missing.join(", ")}; bu katmanlar puanlamaya alınmadı`,
             );
+          const criticalMissing =
+            optional[0].status === "rejected" ||
+            optional[1].status === "rejected";
+          if (criticalMissing) {
+            d.bias = "NO_TRADE";
+            d.signalTier = "VERİ KALİTESİ YETERSİZ";
+            d.action =
+              "⛔ İşlem üretme — OI geçmişi veya taker-flow doğrulanamadı";
+            d.confidence = Math.min(d.confidence || 3, 3);
+            d.evidenceGrade = "VERİ EKSİK";
+            d.caution =
+              "Fiyat yapısı gösterildi ancak türev veri katmanı eksik olduğu için uygulanabilir işlem planı üretilmedi.";
+            if (d._raw) d._raw.side = 0;
+          }
           if (model.samples >= 20) {
             if (
               model.expectancy > 0.2 &&
@@ -2940,8 +3801,8 @@
         }
       }
 
-      // V12.3 FIRSAT RADARI — taze bid/ask ile doğrulanmış sanal fill.
-      const RADAR_KEY = "futures_opportunity_radar_v12_3";
+      // V13 FIRSAT RADARI — taze bid/ask fill, kapalı mumlar ve kanıta dayalı diagnostics.
+      const RADAR_KEY = "futures_opportunity_radar_v13";
       const RADAR_INTERVAL = 15 * 60 * 1000;
       const RADAR_TARGET = 50;
       const RADAR_HOLD_MS = 2 * 60 * 60 * 1000;
@@ -2951,7 +3812,7 @@
 
       function radarDefault() {
         return {
-          version: 12.3,
+          version: 13,
           enabled: true,
           lastCycleAt: 0,
           lastError: "",
@@ -3021,9 +3882,96 @@
           recentLow,
         };
       }
-      function buildRadarCandidate(symbol, ticker, k15, k1) {
+      function radarAdxRegime(rows, period = 14) {
+        const x = closedRows(rows);
+        if (x.length < period * 3)
+          return { valid:false, adx:0, chop:50, regime:"VERİ YETERSİZ" };
+        const tr = [], plusDm = [], minusDm = [];
+        for (let i = 1; i < x.length; i++) {
+          const high = +x[i][2], low = +x[i][3], prevHigh = +x[i-1][2],
+            prevLow = +x[i-1][3], prevClose = +x[i-1][4];
+          const up = high - prevHigh, down = prevLow - low;
+          tr.push(Math.max(high-low, Math.abs(high-prevClose), Math.abs(low-prevClose)));
+          plusDm.push(up > down && up > 0 ? up : 0);
+          minusDm.push(down > up && down > 0 ? down : 0);
+        }
+        let smTr = tr.slice(0,period).reduce((a,b)=>a+b,0);
+        let smPlus = plusDm.slice(0,period).reduce((a,b)=>a+b,0);
+        let smMinus = minusDm.slice(0,period).reduce((a,b)=>a+b,0);
+        const dx = [];
+        for (let i = period; i < tr.length; i++) {
+          smTr = smTr - smTr/period + tr[i];
+          smPlus = smPlus - smPlus/period + plusDm[i];
+          smMinus = smMinus - smMinus/period + minusDm[i];
+          const pdi = smTr ? 100 * smPlus/smTr : 0;
+          const mdi = smTr ? 100 * smMinus/smTr : 0;
+          dx.push(pdi+mdi ? 100*Math.abs(pdi-mdi)/(pdi+mdi) : 0);
+        }
+        if (dx.length < period)
+          return { valid:false, adx:0, chop:50, regime:"VERİ YETERSİZ" };
+        let adx = avg(dx.slice(0,period));
+        for (let i = period; i < dx.length; i++)
+          adx = ((adx * (period-1)) + dx[i]) / period;
+        const recent = x.slice(-period);
+        let trSum = 0;
+        for (let i = 0; i < recent.length; i++) {
+          const high=+recent[i][2], low=+recent[i][3];
+          const prevClose=i ? +recent[i-1][4] : +x[x.length-period-1][4];
+          trSum += Math.max(high-low,Math.abs(high-prevClose),Math.abs(low-prevClose));
+        }
+        const highest=Math.max(...recent.map(r=>+r[2]));
+        const lowest=Math.min(...recent.map(r=>+r[3]));
+        const chop=highest>lowest
+          ? 100*Math.log10(trSum/(highest-lowest))/Math.log10(period)
+          : 100;
+        let regime="REG-4 GEÇİŞ";
+        if (adx >= 35 && chop < 40) regime="REG-2 YÜKSEK VOL EXPANSION";
+        else if (adx >= 25 && chop < 52) regime="REG-1 TREND";
+        else if (adx < 20 || chop > 61.8) regime="REG-3 RANGE";
+        return { valid:true, adx:+adx.toFixed(1), chop:+chop.toFixed(1), regime };
+      }
+      function radarExhaustion(rows, feature) {
+        const x = closedRows(rows), last = x.at(-1);
+        if (!last || !feature?.atr)
+          return { longBlocked:false, shortBlocked:false, label:"YOK" };
+        const open=+last[1], high=+last[2], low=+last[3], close=+last[4];
+        const range=Math.max(high-low,Number.EPSILON);
+        const upper=(high-Math.max(open,close))/range;
+        const lower=(Math.min(open,close)-low)/range;
+        const body=Math.abs(close-open)/range;
+        const ema25Value=Number(feature.e25 ?? feature.ema25);
+        const extension25=Number.isFinite(ema25Value)
+          ? (close-ema25Value)/feature.atr
+          : 0;
+        const anchor=x.length>=6 ? +x.at(-6)[4] : close;
+        const impulse=(close-anchor)/feature.atr;
+        const nearHigh=close>=Math.max(...x.slice(-50).map(r=>+r[2]))*.998;
+        const nearLow=close<=Math.min(...x.slice(-50).map(r=>+r[3]))*1.002;
+        const climax=feature.volRatio>=2.2;
+        const longBlocked =
+          (extension25>=3.2 && impulse>=2.4) ||
+          (nearHigh && climax && upper>=.38 && body<=.48);
+        const shortBlocked =
+          (extension25<=-3.2 && impulse<=-2.4) ||
+          (nearLow && climax && lower>=.38 && body<=.48);
+        return {
+          longBlocked, shortBlocked, extension25, impulse, upper, lower,
+          label:longBlocked ? "LONG EXHAUSTION" : shortBlocked ? "SHORT EXHAUSTION" : "YOK",
+        };
+      }
+      function radarBtcContext(k15,k1) {
+        const m15=radarFeatures(k15), h1=radarFeatures(k1);
+        if (!m15 || !h1) return { valid:false, side:0, label:"BTC VERİ YOK" };
+        const side =
+          h1.e7>h1.e25 && h1.e25>h1.e50 && m15.e7>m15.e25 ? 1 :
+          h1.e7<h1.e25 && h1.e25<h1.e50 && m15.e7<m15.e25 ? -1 : 0;
+        return { valid:true, side, label:side>0?"BTC YUKARI":side<0?"BTC AŞAĞI":"BTC KARIŞIK" };
+      }
+      function buildRadarCandidate(symbol, ticker, k15, k1, btcContext) {
         const m15 = radarFeatures(k15), h1 = radarFeatures(k1);
         if (!m15 || !h1 || !m15.atr || !h1.atr) return null;
+        const regime = radarAdxRegime(k15);
+        if (!regime.valid || regime.regime === "REG-3 RANGE") return null;
         const quoteVolume = +ticker.quoteVolume || 0;
         if (quoteVolume < 12_000_000) return null;
         const chg24 = +ticker.priceChangePercent || 0;
@@ -3048,9 +3996,18 @@
           if (m15.price <= m15.e25) shortScore += 1;
         }
         const side = longScore >= shortScore ? "LONG" : "SHORT";
-        const score = Math.max(longScore, shortScore);
+        let score = Math.max(longScore, shortScore);
         if (score < 6.5 || Math.abs(longScore - shortScore) < 2) return null;
         const dir = side === "LONG" ? 1 : -1;
+        const exhaustion = radarExhaustion(k15,m15);
+        if ((dir>0 && exhaustion.longBlocked) || (dir<0 && exhaustion.shortBlocked))
+          return null;
+        if (btcContext?.valid && btcContext.side) {
+          if (btcContext.side === dir) score += .5;
+          else score -= 1.25;
+        }
+        const minScore = regime.regime.includes("REG-2") ? 7.5 : 7;
+        if (score < minScore) return null;
         const currentPrice = +ticker.lastPrice || m15.price;
         const currentDistE7 = Math.abs(currentPrice - m15.e7) / m15.atr;
         // Radar teorik bir pullback seviyesi değil, tarama anında uygulanabilir fırsat arar.
@@ -3089,7 +4046,8 @@
           score >= 8 && currentDistE7 <= .55 ? "TREND DEVAMI" : "MOMENTUM FIRSATI";
         const explanation =
           `${side === "LONG" ? "1S ve 15D yapı yukarı hizalı" : "1S ve 15D yapı aşağı hizalı"}; ` +
-          `anlık fiyat EMA7'ye ${currentDistE7.toFixed(2)} ATR mesafede, hacim ${m15.volRatio.toFixed(2)}x.`;
+          `anlık fiyat EMA7'ye ${currentDistE7.toFixed(2)} ATR mesafede, hacim ${m15.volRatio.toFixed(2)}x. ` +
+          `${regime.regime} (ADX ${regime.adx}, CHOP ${regime.chop}); ${btcContext?.label || "BTC veri yok"}.`;
         return {
           symbol, side, score, type, risk, explanation, quoteVolume, chg24,
           entryLow, entryHigh, entry, stop, tp1, tp2, tp3,
@@ -3097,6 +4055,12 @@
           eta: hours < 1 ? "30–60 dk" : `${Math.max(1, Math.floor(hours))}–${Math.max(2, Math.ceil(hours * 1.8))} saat`,
           atrPct:m15.atrPct * 100,
           volumeRatio:m15.volRatio,
+          regime:regime.regime,
+          adx:regime.adx,
+          chop:regime.chop,
+          exhaustionLabel:exhaustion.label,
+          btcContext:btcContext?.label || "BTC VERİ YOK",
+          evidenceMode:"HEURISTIC_UNCALIBRATED",
           _executionContext: {
             signalReferencePrice: currentPrice,
             e7: m15.e7,
@@ -3198,6 +4162,10 @@
         if (!Number.isFinite(oiFirst) || !Number.isFinite(oiLast) || oiFirst <= 0 || oiLast <= 0)
           return null;
         const oiChg = oiFirst ? (oiLast / oiFirst - 1) * 100 : 0;
+        const squeezeWithoutParticipation =
+          (long && c.chg24 > 20 && oiChg < -10) ||
+          (!long && c.chg24 < -20 && oiChg < -10);
+        if (squeezeWithoutParticipation) return null;
         if (oiChg > .5) c.score += .4;
         if (oiChg < -2) c.score -= .35;
         const buys = flow.reduce((s,x)=>s + Number(x.buyVol || 0),0);
@@ -3214,6 +4182,8 @@
         c.funding = funding;
         c.oiChg = oiChg;
         c.flowRatio = flowRatio;
+        c.dataQuality = "COMPLETE";
+        c.ruleSet = "V13_EVIDENCE_1";
         c.explanation += ` 4S ${aligned4 ? "uyumlu" : "nötr"}; OI %${oiChg.toFixed(2)}, taker B/S ${flowRatio.toFixed(2)}, funding %${funding.toFixed(4)}.`;
         return c;
       }
@@ -3258,6 +4228,7 @@
           actualFillPrice: c.execution === "IMMEDIATE" ? c.fillPrice : 0,
           trackingStartsAt: monitorFrom,
           initialPartialMinuteProcessed: false,
+          aggTradeRetryCount: 0,
           completedAt: 0,
           exitPrice: 0,
           exitPriceSource: "",
@@ -3265,8 +4236,16 @@
           result: "",
           maxFavorablePct: 0,
           maxAdversePct: 0,
+          entryFeePct: .04,
+          exitFeePct: .04,
+          estimatedSlippagePct: .02,
           milestones: { p1:false, p15:false, p2:false, p3:false, p5:false },
           milestoneTimes: {},
+          protection: {
+            afterP1Pct: .15,
+            afterP2Pct: 1.0,
+            activeLevel: "NONE",
+          },
           ...c,
         };
       }
@@ -3304,6 +4283,53 @@
               ? o.exitPrice / o.entry - 1
               : o.entry / o.exitPrice - 1) * 100
           : null;
+        const durationMs = Math.max(0, time - (o.filledAt || o.createdAt));
+        const fundingPeriods = Math.floor(durationMs / (8 * 60 * 60 * 1000));
+        const fundingCostPct =
+          fundingPeriods *
+          Number(o.funding || 0) *
+          (o.side === "LONG" ? 1 : -1);
+        const spreadCostPct = Number(o.spreadPct || 0) / 2;
+        o.costs = {
+          entryFeePct: Number(o.entryFeePct || .04),
+          exitFeePct: Number(o.exitFeePct || .04),
+          estimatedSlippagePct: Number(o.estimatedSlippagePct || .02),
+          spreadCostPct,
+          fundingPeriods,
+          fundingCostPct,
+        };
+        o.estimatedTotalCostPct =
+          o.costs.entryFeePct +
+          o.costs.exitFeePct +
+          o.costs.estimatedSlippagePct +
+          spreadCostPct +
+          fundingCostPct;
+        o.netSpotPct = Number.isFinite(o.realizedSpotPct)
+          ? +(o.realizedSpotPct - o.estimatedTotalCostPct).toFixed(4)
+          : null;
+        const initialRiskPct = o.entry
+          ? (Math.abs(o.entry - o.stop) / o.entry) * 100
+          : 0;
+        o.netR =
+          Number.isFinite(o.netSpotPct) && initialRiskPct
+            ? +(o.netSpotPct / initialRiskPct).toFixed(3)
+            : null;
+      }
+      function radarEffectiveStop(o) {
+        const dir = o.side === "LONG" ? 1 : -1;
+        const base = Number(o.stop);
+        if (o.milestones?.p2)
+          return o.entry * (1 + dir * ((o.protection?.afterP2Pct ?? 1) / 100));
+        if (o.milestones?.p1)
+          return o.entry * (1 + dir * ((o.protection?.afterP1Pct ?? .15) / 100));
+        return base;
+      }
+      function radarProtectedResult(o) {
+        return o.milestones?.p2
+          ? "PROTECTED_AFTER_2"
+          : o.milestones?.p1
+            ? "PROTECTED_AFTER_1"
+            : "DIRECT_STOP";
       }
       function processRadarTrade(o, trade) {
         if (o.status !== "ACTIVE") return;
@@ -3313,18 +4339,20 @@
         o.lastObservedPrice = price;
         o.lastObservedAt = time;
         const long = o.side === "LONG";
-        const stopHit = long ? price <= o.stop : price >= o.stop;
-        const favorable = Math.max(0, (long ? price / o.entry - 1 : o.entry / price - 1) * 100);
-        const adverse = Math.max(0, (long ? 1 - price / o.entry : price / o.entry - 1) * 100);
+        const effectiveStop = radarEffectiveStop(o);
+        const stopHit = long ? price <= effectiveStop : price >= effectiveStop;
+        const excursion = pathExcursion(o.side, o.entry, price, price, o.entry),
+          favorable = excursion.favorable * 100,
+          adverse = excursion.adverse * 100;
         o.maxFavorablePct = Math.max(o.maxFavorablePct || 0, favorable);
         o.maxAdversePct = Math.max(o.maxAdversePct || 0, adverse);
         if (stopHit) {
           completeRadarPlan(
             o,
-            o.milestones.p2 ? "STOP_AFTER_2" : o.milestones.p1 ? "STOP_AFTER_1" : "DIRECT_STOP",
+            radarProtectedResult(o),
             time,
-            price,
-            "AGG_TRADE",
+            effectiveStop,
+            o.milestones.p1 ? "DYNAMIC_PROTECTION_AGG_TRADE" : "AGG_TRADE",
           );
           return;
         }
@@ -3333,6 +4361,8 @@
           if (!o.milestones[key] && favorable >= pct) {
             o.milestones[key] = true;
             o.milestoneTimes[key] = time;
+            if (key === "p1" && o.protection) o.protection.activeLevel = "P1";
+            if (key === "p2" && o.protection) o.protection.activeLevel = "P2";
           }
         }
         if (o.milestones.p3) {
@@ -3379,9 +4409,11 @@
           o.lastObservedAt = +row[6];
         }
         const long = o.side === "LONG";
-        const stopHit = long ? low <= o.stop : high >= o.stop;
-        const favorable = Math.max(0, (long ? high / o.entry - 1 : o.entry / low - 1) * 100);
-        const adverse = Math.max(0, (long ? 1 - low / o.entry : high / o.entry - 1) * 100);
+        const effectiveStop = radarEffectiveStop(o);
+        const stopHit = long ? low <= effectiveStop : high >= effectiveStop;
+        const excursion = pathExcursion(o.side, o.entry, high, low, o.entry),
+          favorable = excursion.favorable * 100,
+          adverse = excursion.adverse * 100;
         o.maxFavorablePct = Math.max(o.maxFavorablePct || 0, favorable);
         o.maxAdversePct = Math.max(o.maxAdversePct || 0, adverse);
         const newlyCrossed =
@@ -3389,19 +4421,21 @@
           (!o.milestones.p2 && favorable >= 2) ||
           (!o.milestones.p3 && favorable >= 3);
         // Aynı 1D mumda yeni eşik ve stop görülürse saniyelik sıra bilinemez.
-        if (stopHit && newlyCrossed) {
+        if (sameBarPathConflict(stopHit, newlyCrossed)) {
           o.status = "COMPLETED";
           o.completedAt = time;
           o.result = "AMBIGUOUS";
           return;
         }
         if (stopHit) {
-          const result = o.milestones.p2
-            ? "STOP_AFTER_2"
-            : o.milestones.p1
-              ? "STOP_AFTER_1"
-              : "DIRECT_STOP";
-          completeRadarPlan(o,result,time,o.stop,"STOP_TRIGGER_1M");
+          const result = radarProtectedResult(o);
+          completeRadarPlan(
+            o,
+            result,
+            time,
+            effectiveStop,
+            o.milestones.p1 ? "DYNAMIC_PROTECTION_1M" : "STOP_TRIGGER_1M",
+          );
           return;
         }
         const levels = [["p1",1],["p15",1.5],["p2",2],["p3",3],["p5",5]];
@@ -3409,6 +4443,8 @@
           if (!o.milestones[key] && favorable >= pct) {
             o.milestones[key] = true;
             o.milestoneTimes[key] = time;
+            if (key === "p1" && o.protection) o.protection.activeLevel = "P1";
+            if (key === "p2" && o.protection) o.protection.activeLevel = "P2";
           }
         }
         if (o.milestones.p3) {
@@ -3450,7 +4486,9 @@
               o.initialPartialMinuteProcessed = true;
               o.initialPartialTradeCount = partial.trades.length;
             } catch {
-              completeRadarPlan(o,"AMBIGUOUS",partialEnd,0,"AGG_TRADES_UNAVAILABLE");
+              o.aggTradeRetryCount = (o.aggTradeRetryCount || 0) + 1;
+              if (o.aggTradeRetryCount >= 3)
+                completeRadarPlan(o,"AMBIGUOUS",partialEnd,0,"AGG_TRADES_UNAVAILABLE_AFTER_3_RETRIES");
               return;
             }
           }
@@ -3481,7 +4519,9 @@
                 if (o.status === "COMPLETED") break;
               }
             } catch {
-              completeRadarPlan(o,"AMBIGUOUS",o.activeExpiresAt,0,"FINAL_AGG_TRADES_UNAVAILABLE");
+              o.aggTradeRetryCount = (o.aggTradeRetryCount || 0) + 1;
+              if (o.aggTradeRetryCount >= 3)
+                completeRadarPlan(o,"AMBIGUOUS",o.activeExpiresAt,0,"FINAL_AGG_TRADES_UNAVAILABLE_AFTER_3_RETRIES");
               return;
             }
           }
@@ -3507,6 +4547,10 @@
         const milestone = (key) => filled.filter((o) => o.milestones?.[key]).length;
         const resolvedMilestone = (key) => resolved.filter((o) => o.milestones?.[key]).length;
         const count = (result) => resolved.filter((o) => o.result === result).length;
+        const realized = resolved
+          .map((o)=>Number(o.realizedSpotPct))
+          .filter(Number.isFinite);
+        const realizedSum = realized.reduce((a,b)=>a+b,0);
         return {
           total:all.length, resolved:resolved.length, completed:completed.length,
           pending:all.filter((o)=>o.status !== "COMPLETED").length,
@@ -3524,10 +4568,14 @@
           directStop:count("DIRECT_STOP"),
           stopAfter1:count("STOP_AFTER_1"),
           stopAfter2:count("STOP_AFTER_2"),
+          protectedAfter1:count("PROTECTED_AFTER_1"),
+          protectedAfter2:count("PROTECTED_AFTER_2"),
           tp3:count("TP3"),
           timeoutAfter1:count("TIMEOUT_AFTER_1"),
           timeoutAfter2:count("TIMEOUT_AFTER_2"),
           flatTimeout:count("FLAT_TIMEOUT"),
+          realizedSpotSum:realizedSum,
+          realizedSpotAverage:realized.length ? realizedSum/realized.length : Number.NaN,
         };
       }
       function renderRadar() {
@@ -3547,13 +4595,14 @@
           <div class="radar-stats">
             <div class="radar-stat">DOĞRULANMIŞ FILL<b>${r.filled}/${r.total}</b></div>
             <div class="radar-stat">DİREKT STOP<b>${r.directStop}</b></div>
-            <div class="radar-stat">+%1 SONRA STOP<b>${r.stopAfter1}</b></div>
-            <div class="radar-stat">+%2 SONRA STOP<b>${r.stopAfter2}</b></div>
+            <div class="radar-stat">+%1 KÂR KORUMA<b>${r.protectedAfter1}</b></div>
+            <div class="radar-stat">+%2 KÂR KORUMA<b>${r.protectedAfter2}</b></div>
             <div class="radar-stat">+%3 KAPANIŞ<b>${r.tp3}</b>${radarPct(r.successRate)}</div>
             <div class="radar-stat">TIMEOUT +%1 / +%2<b>${r.timeoutAfter1} / ${r.timeoutAfter2}</b></div>
             <div class="radar-stat">HAREKETSİZ TIMEOUT<b>${r.flatTimeout}</b></div>
             <div class="radar-stat">CANLI EŞİKLER +%1/+%2<b>${radarPct(r.p1)} / ${radarPct(r.p2)}</b></div>
             <div class="radar-stat">SONUÇLANAN +%1/+%2<b>${radarPct(r.p1Resolved)} / ${radarPct(r.p2Resolved)}</b></div>
+            <div class="radar-stat">HAM SPOT TOPLAM / ORT.<b>${radarPct(r.realizedSpotSum,2)} / ${radarPct(r.realizedSpotAverage,2)}</b></div>
             <div class="radar-stat">KANIT DURUMU<b>${r.resolved >= 50 ? "İLK RAPOR HAZIR" : "TOPLANIYOR"}</b></div>
           </div>`;
         const cards = state.opportunities
@@ -3570,7 +4619,7 @@
             <div class="opportunity-levels">
               <div class="opportunity-level"><small>GİRİŞ BÖLGESİ</small>${fmt(o.entryLow)} – ${fmt(o.entryHigh)}</div>
               <div class="opportunity-level"><small>DOĞRULANMIŞ SANAL FILL</small>${fmt(o.actualFillPrice || o.fillPrice || o.entry)} · ${o.executionQuoteAt ? new Date(o.executionQuoteAt).toLocaleTimeString("tr-TR",{hour12:false,fractionalSecondDigits:3}) : "eski kayıt"}</div>
-              <div class="opportunity-level"><small>STOP</small>${fmt(o.stop)}</div>
+              <div class="opportunity-level"><small>İLK STOP / AKTİF KORUMA</small>${fmt(o.stop)} / ${fmt(radarEffectiveStop(o))}</div>
               <div class="opportunity-level"><small>TP1</small>${fmt(o.tp1)}</div>
               <div class="opportunity-level"><small>TP2</small>${fmt(o.tp2)}</div>
               <div class="opportunity-level"><small>TP3 / İŞLEM KAPANIŞI</small>${fmt(o.tp3)}</div>
@@ -3578,7 +4627,7 @@
               <div class="opportunity-level"><small>RİSK</small>${esc(o.risk)}</div>
             </div>
             <div class="opportunity-note">${esc(o.explanation)}</div>
-            <div class="opportunity-state">${o.status === "ACTIVE" ? "ŞİMDİ AKTİF" : esc(o.result || o.status)} · PLAN KİLİTLİ · ${esc(o.timingLabel || radarTiming(o.type).label)} · MFE ${radarPct(o.maxFavorablePct || 0,2)}</div>
+            <div class="opportunity-state">${o.status === "ACTIVE" ? "ŞİMDİ AKTİF" : esc(o.result || o.status)} · V13 ${esc(o.evidenceMode || "EVIDENCE")} · ${esc(o.timingLabel || radarTiming(o.type).label)} · MFE ${radarPct(o.maxFavorablePct || 0,2)}${Number.isFinite(o.netR) ? ` · tahmini net ${o.netR.toFixed(2)}R` : ""}</div>
           </article>`).join("") :
           `<div class="empty">Henüz uygun aday yok. Motor ilk taramada likit ilk 30 USDT perpetual sözleşmesini değerlendirecek.</div>`;
       }
@@ -3645,13 +4694,18 @@
             .filter((t) => allowed.has(t.symbol) && +t.quoteVolume >= 12_000_000)
             .sort((a,b) => +b.quoteVolume - +a.quoteVolume)
             .slice(0,30);
+          const [btc15,btc1] = await Promise.all([
+            get("/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=120"),
+            get("/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=100"),
+          ]);
+          const btcContext = radarBtcContext(btc15,btc1);
           const prelim = (await mapLimit(top, 4, async (t) => {
             const q = encodeURIComponent(t.symbol);
             const [k15,k1] = await Promise.all([
               get(`/fapi/v1/klines?symbol=${q}&interval=15m&limit=120`),
               get(`/fapi/v1/klines?symbol=${q}&interval=1h&limit=100`),
             ]);
-            return buildRadarCandidate(t.symbol,t,k15,k1);
+            return buildRadarCandidate(t.symbol,t,k15,k1,btcContext);
           })).filter(Boolean).sort((a,b) => b.score - a.score).slice(0,8);
           const candidates = (await mapLimit(prelim, 3, async (c) => {
             const q = encodeURIComponent(c.symbol);
@@ -3669,6 +4723,11 @@
           const availableSlots = Math.max(0,8 - openCount);
           for (const c of candidates) {
             if (created.length >= Math.min(3,availableSlots)) break;
+            if (created.filter((x)=>x.side===c.side).length >= 2) continue;
+            const activeSameSide = state.opportunities.filter(
+              (o)=>o.status === "ACTIVE" && o.side === c.side,
+            ).length;
+            if (activeSameSide >= 5) continue;
             if (hasOpenRadarPlan(state,c.symbol)) continue;
             const q = encodeURIComponent(c.symbol);
             let executable;
@@ -3686,9 +4745,7 @@
             created.push(plan);
           }
           state.latestIds = created.map((x) => x.id);
-          // Bu kapsamda `now` tanımlı değil. Taramanın gerçek tamamlanma anını
-          // kullan; aksi halde adaylar push edildikten sonra ReferenceError oluşur.
-          state.lastCycleAt = scanCompletedAt;
+          state.lastCycleAt = Date.now();
           state.lastError = "";
           saveRadar(state);
         } catch (e) {
@@ -3714,13 +4771,13 @@
         const state = loadRadar(), report = radarReport(state);
         const blob = new Blob([JSON.stringify({
           exportedAt:new Date().toISOString(),
-          definition:"Fresh Binance bookTicker bid/ask bölge içi doğrulanmış sanal fill; ilk kısmi dakika aggTrades ile, devamı kapalı 1D mumlarla 2H PATH = DIRECT_STOP | STOP_AFTER_1 | STOP_AFTER_2 | TP3 | TIMEOUT_AFTER_1/2 | FLAT_TIMEOUT; aynı 1D mum belirsizliği hariç",
+          definition:"V13.2 Structure & Execution Engine: fresh Binance bookTicker bid/ask doğrulanmış fill; kapalı 1D mum + aggTrades path; HTF/VWAP yapısal hedef bariyerleri, BOS önem skoru, OOS 30/30/40 kademeli test, execution-aile maliyetleri, gerçek Wilder ADX/CHOP rejimi ve simetrik exhaustion. Kalibre edilmemiş olasılık gösterilmez.",
           report,
           opportunities:state.opportunities,
         },null,2)],{type:"application/json"});
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `firsat-radari-v12-3-${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `firsat-radari-v13-${new Date().toISOString().slice(0,10)}.json`;
         a.click();
         setTimeout(()=>URL.revokeObjectURL(a.href),1000);
       }
