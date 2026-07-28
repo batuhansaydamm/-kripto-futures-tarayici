@@ -13,6 +13,7 @@ const fresh = () => ({
   lastScanAt: 0,
   lastCandidate: null,
   lastError: "",
+  marketCooldownUntil: 0,
   events: [],
 });
 
