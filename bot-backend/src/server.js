@@ -33,7 +33,7 @@ pre{white-space:pre-wrap;word-break:break-word;color:var(--dim);font:11px/1.55 u
  <div class="card"><b>Son aday</b><pre id="candidate">—</pre></div>
  <div class="card"><b>Açık işlem / kanıt</b><pre id="trade">—</pre></div>
  <div class="card"><b>Son hata</b><pre class="error" id="error">Yok</pre></div>
- <div class="card"><div class="row"><button onclick="control(true)">BOTU AÇ</button><button class="secondary" onclick="control(false)">BOTU KAPAT</button></div><button class="secondary" onclick="scan()">ŞİMDİ TARA</button><button class="danger" onclick="kill()">ACİL DURDUR</button></div>
+ <div class="card"><button class="secondary" onclick="testConnection()">TESTNET HESABINI DOĞRULA</button><div class="row"><button onclick="control(true)">BOTU AÇ</button><button class="secondary" onclick="control(false)">BOTU KAPAT</button></div><button class="secondary" onclick="scan()">ŞİMDİ TARA</button><button class="danger" onclick="kill()">ACİL DURDUR</button></div>
  <div class="card"><b>Son olaylar</b><pre id="events">—</pre></div>
 </div>
 </main><script>
@@ -42,6 +42,7 @@ async function api(path,options={}){const r=await fetch(path,{...options,headers
 async function connect(){key=token.value.trim();loginError.textContent="";try{await refresh();localStorage.setItem("v132_token",key);login.hidden=true;app.hidden=false}catch(e){localStorage.removeItem("v132_token");key="";token.value="";login.hidden=false;app.hidden=true;loginError.textContent=e.message;token.focus()}}
 async function refresh(){const x=await api("/api/status");mode.textContent=x.config.dryRun?"DRY-RUN":"TESTNET EMİR";mode.className="pill "+(x.config.dryRun?"":"on");enabled.textContent=x.state.enabled?"BOT AÇIK":"BOT KAPALI";enabled.className="pill "+(x.state.enabled?"on":"");kill.textContent=x.state.killSwitch?"KILL SWITCH":"KORUMA NORMAL";kill.className="pill "+(x.state.killSwitch?"kill":"on");trades.textContent=x.state.totalTrades+"/5";open.textContent=x.state.openTrade?"1/1":"0/1";losses.textContent=x.state.consecutiveLosses+"/2";pnl.textContent=Number(x.state.daily.realizedPnl||0).toFixed(2)+" USDT";candidate.textContent=JSON.stringify(x.state.lastCandidate,null,2);trade.textContent=JSON.stringify(x.state.openTrade,null,2);error.textContent=x.state.lastError||"Yok";events.textContent=x.state.events.slice(-15).reverse().map(e=>new Date(e.at).toLocaleString("tr-TR")+" · "+e.type+" "+JSON.stringify(e)).join("\\n")}
 async function control(enabled){await api("/api/control",{method:"POST",body:JSON.stringify({enabled})});refresh()}
+async function testConnection(){try{const x=await api("/api/test-connection",{method:"POST",body:"{}"});alert("Testnet bağlantısı doğrulandı. Kullanılabilir bakiye: "+Number(x.availableBalance||0).toFixed(2)+" USDT · İşlem yetkisi: "+(x.canTrade?"AÇIK":"KAPALI"))}catch(e){alert("Testnet bağlantısı doğrulanamadı: "+e.message)}}
 async function scan(){const x=await api("/api/scan",{method:"POST",body:"{}"});alert(x.result?.candidate?"Aday: "+x.result.candidate.symbol+" "+x.result.candidate.side:"Uygun aday yok");refresh()}
 async function kill(){if(!confirm("Botu acil durdurmak istediğine emin misin?"))return;await api("/api/kill",{method:"POST",body:JSON.stringify({reason:"iPhone paneli"})});refresh()}
 if(key)connect();setInterval(()=>{if(!app.hidden)refresh().catch(e=>{error.textContent=e.message})},15000);
@@ -83,6 +84,16 @@ export function startServer({ bot, store, config }) {
     try {
       if (req.method === "GET" && url.pathname === "/api/status")
         return json(res, 200, publicState(store, config, bot.busy));
+      if (req.method === "POST" && url.pathname === "/api/test-connection") {
+        await bot.client.syncTime();
+        const account = await bot.client.account();
+        return json(res, 200, {
+          ok: true,
+          environment: "BINANCE_FUTURES_TESTNET",
+          canTrade: Boolean(account.canTrade),
+          availableBalance: Number(account.availableBalance || 0),
+        });
+      }
       if (req.method === "POST" && url.pathname === "/api/scan") {
         const result = await bot.cycle({ forceScan: true });
         return json(res, 200, { ok: true, result });
