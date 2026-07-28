@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: v13-2-binance-testnet-bot
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: false
+    disk:
+      name: bot-state
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: BINANCE_BASE_URL
+        value: https://testnet.binancefuture.com
+      - key: DRY_RUN
+        value: "true"
+      - key: BOT_ENABLED
+        value: "false"
+      - key: MARGIN_USDT
+        value: "50"
+      - key: LEVERAGE
+        value: "10"
+      - key: MAX_TOTAL_TRADES
+        value: "5"
+      - key: MAX_OPEN_POSITIONS
+        value: "1"
+      - key: MAX_CONSECUTIVE_LOSSES
+        value: "2"
+      - key: MAX_DAILY_LOSS_USDT
+        value: "100"
+      - key: SCAN_INTERVAL_MS
+        value: "900000"
+      - key: DASHBOARD_TOKEN
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
