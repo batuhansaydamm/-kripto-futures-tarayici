@@ -1,6 +1,6 @@
 # V13.2 Binance Futures Testnet Bot
 
-Bu servis V13.2 Fırsat Radarı kurallarını sunucu tarafında çalıştırır ve **yalnız Binance USDⓈ-M Futures Testnet** için emir zinciri hazırlar.
+Bu servis V13.2 Fırsat Radarı kurallarını gerçek Binance USDⓈ-M herkese açık piyasa verisiyle sunucu tarafında çalıştırır ve **yalnız Binance USDⓈ-M Futures Testnet** için emir zinciri hazırlar.
 
 ## Güvenlik
 
