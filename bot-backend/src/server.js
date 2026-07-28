@@ -23,7 +23,7 @@ input,button{width:100%;border-radius:10px;padding:13px;font:700 13px ui-monospa
 pre{white-space:pre-wrap;word-break:break-word;color:var(--dim);font:11px/1.55 ui-monospace;margin:0}.error{color:#ff8b9b}.good{color:var(--green)}@media(min-width:600px){.grid{grid-template-columns:repeat(4,1fr)}}
 </style></head><body><main>
 <div class="head"><div class="eyebrow">V13.2 · BINANCE FUTURES TESTNET</div><h1>Bot Kontrol Paneli</h1><div class="dim">50 USDT · x10 · isolated · toplam 5 işlem · eşzamanlı 1</div></div>
-<div class="card" id="login"><b>Panel anahtarı</b><input id="token" type="password" autocomplete="current-password" placeholder="DASHBOARD_TOKEN"><button onclick="connect()">BAĞLAN</button></div>
+<div class="card" id="login"><b>Panel anahtarı</b><input id="token" type="password" autocomplete="current-password" placeholder="DASHBOARD_TOKEN"><div class="error" id="loginError"></div><button onclick="connect()">BAĞLAN</button></div>
 <div id="app" hidden>
  <div class="card"><span class="pill" id="mode"></span> <span class="pill" id="enabled"></span> <span class="pill" id="kill"></span></div>
  <div class="grid">
@@ -38,13 +38,13 @@ pre{white-space:pre-wrap;word-break:break-word;color:var(--dim);font:11px/1.55 u
 </div>
 </main><script>
 let key=localStorage.getItem("v132_token")||"";token.value=key;
-async function api(path,options={}){const r=await fetch(path,{...options,headers:{"content-type":"application/json","x-dashboard-token":key,...options.headers}});const j=await r.json();if(!r.ok)throw Error(j.error||"HTTP "+r.status);return j}
-async function connect(){key=token.value.trim();localStorage.setItem("v132_token",key);await refresh();login.hidden=true;app.hidden=false}
-async function refresh(){try{const x=await api("/api/status");mode.textContent=x.config.dryRun?"DRY-RUN":"TESTNET EMİR";mode.className="pill "+(x.config.dryRun?"":"on");enabled.textContent=x.state.enabled?"BOT AÇIK":"BOT KAPALI";enabled.className="pill "+(x.state.enabled?"on":"");kill.textContent=x.state.killSwitch?"KILL SWITCH":"KORUMA NORMAL";kill.className="pill "+(x.state.killSwitch?"kill":"on");trades.textContent=x.state.totalTrades+"/5";open.textContent=x.state.openTrade?"1/1":"0/1";losses.textContent=x.state.consecutiveLosses+"/2";pnl.textContent=Number(x.state.daily.realizedPnl||0).toFixed(2)+" USDT";candidate.textContent=JSON.stringify(x.state.lastCandidate,null,2);trade.textContent=JSON.stringify(x.state.openTrade,null,2);error.textContent=x.state.lastError||"Yok";events.textContent=x.state.events.slice(-15).reverse().map(e=>new Date(e.at).toLocaleString("tr-TR")+" · "+e.type+" "+JSON.stringify(e)).join("\\n")}catch(e){alert(e.message)}}
+async function api(path,options={}){const r=await fetch(path,{...options,headers:{"content-type":"application/json","x-dashboard-token":key,...options.headers}});const j=await r.json();if(!r.ok){const e=Error(j.error||"HTTP "+r.status);e.status=r.status;throw e}return j}
+async function connect(){key=token.value.trim();loginError.textContent="";try{await refresh();localStorage.setItem("v132_token",key);login.hidden=true;app.hidden=false}catch(e){localStorage.removeItem("v132_token");key="";token.value="";login.hidden=false;app.hidden=true;loginError.textContent=e.message;token.focus()}}
+async function refresh(){const x=await api("/api/status");mode.textContent=x.config.dryRun?"DRY-RUN":"TESTNET EMİR";mode.className="pill "+(x.config.dryRun?"":"on");enabled.textContent=x.state.enabled?"BOT AÇIK":"BOT KAPALI";enabled.className="pill "+(x.state.enabled?"on":"");kill.textContent=x.state.killSwitch?"KILL SWITCH":"KORUMA NORMAL";kill.className="pill "+(x.state.killSwitch?"kill":"on");trades.textContent=x.state.totalTrades+"/5";open.textContent=x.state.openTrade?"1/1":"0/1";losses.textContent=x.state.consecutiveLosses+"/2";pnl.textContent=Number(x.state.daily.realizedPnl||0).toFixed(2)+" USDT";candidate.textContent=JSON.stringify(x.state.lastCandidate,null,2);trade.textContent=JSON.stringify(x.state.openTrade,null,2);error.textContent=x.state.lastError||"Yok";events.textContent=x.state.events.slice(-15).reverse().map(e=>new Date(e.at).toLocaleString("tr-TR")+" · "+e.type+" "+JSON.stringify(e)).join("\\n")}
 async function control(enabled){await api("/api/control",{method:"POST",body:JSON.stringify({enabled})});refresh()}
 async function scan(){const x=await api("/api/scan",{method:"POST",body:"{}"});alert(x.result?.candidate?"Aday: "+x.result.candidate.symbol+" "+x.result.candidate.side:"Uygun aday yok");refresh()}
 async function kill(){if(!confirm("Botu acil durdurmak istediğine emin misin?"))return;await api("/api/kill",{method:"POST",body:JSON.stringify({reason:"iPhone paneli"})});refresh()}
-if(key)connect().catch(()=>{});setInterval(()=>{if(!app.hidden)refresh()},15000);
+if(key)connect();setInterval(()=>{if(!app.hidden)refresh().catch(e=>{error.textContent=e.message})},15000);
 </script></body></html>`;
 
 function publicState(store, config, busy) {
