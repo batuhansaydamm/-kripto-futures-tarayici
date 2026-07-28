@@ -649,6 +649,55 @@ async function mapLimit(items, limit, fn) {
   return output;
 }
 
+export function selectScanUniverse(
+  tickers,
+  allowed,
+  {
+    minQuoteVolume = 12_000_000,
+    gainers = 15,
+    losers = 10,
+    volumeLeaders = 5,
+  } = {},
+) {
+  const eligible = tickers.filter((ticker) => {
+    const quoteVolume = Number(ticker.quoteVolume);
+    const change = Number(ticker.priceChangePercent);
+    return (
+      allowed.has(ticker.symbol) &&
+      Number.isFinite(quoteVolume) &&
+      quoteVolume >= minQuoteVolume &&
+      Number.isFinite(change)
+    );
+  });
+  const byChangeDesc = [...eligible].sort(
+    (a, b) => Number(b.priceChangePercent) - Number(a.priceChangePercent),
+  );
+  const byChangeAsc = [...eligible].sort(
+    (a, b) => Number(a.priceChangePercent) - Number(b.priceChangePercent),
+  );
+  const byVolumeDesc = [...eligible].sort(
+    (a, b) => Number(b.quoteVolume) - Number(a.quoteVolume),
+  );
+
+  const selected = new Map();
+  const add = (ticker, source) => {
+    const existing = selected.get(ticker.symbol);
+    if (existing) {
+      existing.scanSources.push(source);
+      return;
+    }
+    selected.set(ticker.symbol, { ...ticker, scanSources: [source] });
+  };
+
+  byChangeDesc.slice(0, gainers).forEach((ticker) => add(ticker, "GAINER"));
+  byChangeAsc.slice(0, losers).forEach((ticker) => add(ticker, "LOSER"));
+  byVolumeDesc
+    .slice(0, volumeLeaders)
+    .forEach((ticker) => add(ticker, "VOLUME"));
+
+  return [...selected.values()];
+}
+
 export async function scanBestCandidate(client) {
   const [exchange, tickers, btc15, btc1] = await Promise.all([
     client.get("/fapi/v1/exchangeInfo"),
@@ -674,13 +723,7 @@ export async function scanBestCandidate(client) {
       )
       .map((symbol) => symbol.symbol),
   );
-  const top = tickers
-    .filter(
-      (ticker) =>
-        allowed.has(ticker.symbol) && Number(ticker.quoteVolume) >= 12_000_000,
-    )
-    .sort((a, b) => Number(b.quoteVolume) - Number(a.quoteVolume))
-    .slice(0, 30);
+  const top = selectScanUniverse(tickers, allowed);
   const marketContext = btcContext(btc15, btc1);
   const preliminary = (
     await mapLimit(top, 4, async (ticker) => {
