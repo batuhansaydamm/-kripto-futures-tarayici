@@ -119,6 +119,8 @@ export async function executeProtectedTrade(
     entryOrderId: null,
     stopOrderId: null,
     targetOrderIds: [],
+    initialStopPrice: package_.stopPrice,
+    protectionLevel: "ORIGINAL",
   };
   try {
     const entry = await client.newOrder({

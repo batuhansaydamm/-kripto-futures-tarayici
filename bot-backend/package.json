@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test",
-    "check": "node --check src/index.js && node --check src/radar.js && node --check src/execution.js"
+    "check": "node --check src/index.js && node --check src/radar.js && node --check src/execution.js && node --check src/monitor.js && node --check src/manage.js && node --check src/bot.js && node --check src/binance.js && node --check src/config.js"
   },
   "engines": {
     "node": ">=20"

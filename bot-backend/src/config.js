@@ -17,6 +17,7 @@ export const config = Object.freeze({
   dashboardToken: process.env.DASHBOARD_TOKEN || "",
   dryRun: bool("DRY_RUN", true),
   botEnabled: bool("BOT_ENABLED", false),
+  managementEnabled: bool("MANAGEMENT_ENABLED", true),
   port: number("PORT", 3000),
   scanIntervalMs: number("SCAN_INTERVAL_MS", 15 * 60 * 1000),
   marginUsdt: number("MARGIN_USDT", 50),
