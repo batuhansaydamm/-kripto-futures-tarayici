@@ -12,7 +12,10 @@ const client = new BinanceClient({
   apiKey: config.apiKey,
   apiSecret: config.apiSecret,
 });
-const bot = new TradingBot({ client, store, config });
+const marketClient = new BinanceClient({
+  baseUrl: config.marketDataBaseUrl,
+});
+const bot = new TradingBot({ client, marketClient, store, config });
 startServer({ bot, store, config });
 
 console.log(
@@ -21,6 +24,7 @@ console.log(
     engine: "V13.2_STRUCTURE_EXECUTION",
     dryRun: config.dryRun,
     endpoint: config.baseUrl,
+    marketDataEndpoint: config.marketDataBaseUrl,
     port: config.port,
     limits: {
       marginUsdt: config.marginUsdt,
