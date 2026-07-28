@@ -44,7 +44,14 @@ function makeClient({ failNewStopOrder = false, failCancelWithUnknown = false } 
       return { orderId: id, status: "NEW" };
     },
     async positionRisk() {
-      return { symbol: "BTCUSDT", positionAmt: "0.01", markPrice: "51000" };
+      const closed = calls.some(
+        (call) => call.op === "newOrder" && call.type === "MARKET" && call.reduceOnly,
+      );
+      return {
+        symbol: "BTCUSDT",
+        positionAmt: closed ? "0" : "0.01",
+        markPrice: "51000",
+      };
     },
     async cancelAll(symbol) {
       calls.push({ op: "cancelAll", symbol });
@@ -61,10 +68,10 @@ test("BREAKEVEN sinyali stopu entry'nin biraz üstüne (LONG) taşır", async ()
   assert.equal(outcome.kind, "BREAKEVEN");
   assert.equal(trade.protectionLevel, "BREAKEVEN");
   assert.ok(trade.stopPrice > 50_000, `yeni stop entry üstünde olmalı, geldi: ${trade.stopPrice}`);
-  assert.equal(client.calls[0].op, "cancelOrder");
-  assert.equal(client.calls[1].op, "newOrder");
-  assert.equal(client.calls[1].type, "STOP_MARKET");
-  assert.equal(client.calls[1].closePosition, true);
+  assert.equal(client.calls[0].op, "newOrder");
+  assert.equal(client.calls[0].type, "STOP_MARKET");
+  assert.equal(client.calls[0].closePosition, true);
+  assert.equal(client.calls[1].op, "cancelOrder");
 });
 
 test("LOCKED_1R sinyali stopu entry+1R'a taşır", async () => {
@@ -97,31 +104,23 @@ test("EARLY_EXIT sinyali tüm emirleri iptal edip market ile kapatır", async ()
   const outcome = await applyManagementAction(client, trade, signal);
   assert.equal(outcome.acted, true);
   assert.equal(outcome.kind, "EARLY_EXIT");
-  assert.equal(client.calls[0].op, "cancelAll");
+  assert.equal(client.calls[0].op, "newOrder");
   const marketCall = client.calls.find((c) => c.op === "newOrder");
   assert.equal(marketCall.type, "MARKET");
   assert.equal(marketCall.reduceOnly, true);
   assert.equal(marketCall.side, "SELL"); // LONG pozisyon kapatmak için SELL
+  assert.equal(client.calls.at(-1).op, "cancelAll");
 });
 
-test("yeni stop emri reddedilirse pozisyon korumasız kalmaz, acil kapatılır", async () => {
+test("yeni stop emri reddedilirse eski stop iptal edilmez ve pozisyon korunur", async () => {
   const client = makeClient({ failNewStopOrder: true });
   const trade = baseTrade();
   const signal = { ok: true, action: "MOVE_STOP_TO_BREAKEVEN_SUGGESTED", reason: "test" };
-  await assert.rejects(
-    applyManagementAction(client, trade, signal),
-    (error) => {
-      assert.ok(error.emergency, "emergency bilgisi olmalı");
-      assert.equal(error.emergency.closed, true);
-      return true;
-    },
-  );
-  assert.ok(client.calls.some((c) => c.op === "cancelAll"));
-  assert.ok(
-    client.calls.some(
-      (c) => c.op === "newOrder" && c.type === "MARKET" && c.reduceOnly === true,
-    ),
-  );
+  await assert.rejects(applyManagementAction(client, trade, signal));
+  assert.equal(trade.stopOrderId, 200);
+  assert.equal(trade.stopPrice, 49_500);
+  assert.equal(client.calls.some((c) => c.op === "cancelOrder"), false);
+  assert.equal(client.calls.some((c) => c.type === "MARKET"), false);
 });
 
 test("eski stop zaten yoksa (-2011) cancel hatası yutulur, yeni stop yine konur", async () => {
@@ -149,4 +148,25 @@ test("closeImmediately pozisyon zaten kapalıysa emir göndermez", async () => {
   assert.equal(result.closed, true);
   assert.equal(result.order, null);
   assert.equal(client.calls.length, 0);
+});
+
+test("hacim güçlenince TP3 runner hedefi 3R'a taşınır", async () => {
+  const client = makeClient();
+  const trade = baseTrade({
+    targets: { tp3: { price: 51_250, quantity: 0.004 } },
+    targetOrderIds: [{ name: "tp3", orderId: 250 }],
+    runnerTargetR: 2.5,
+  });
+  const signal = {
+    ok: true,
+    action: "HOLD",
+    reason: "trend sürüyor",
+    targetAction: "EXTEND_RUNNER_TO_3R",
+    targetReason: "hacim güçlü",
+  };
+  const outcome = await applyManagementAction(client, trade, signal);
+  assert.equal(outcome.acted, true);
+  assert.equal(outcome.kind, "RUNNER_EXTENDED");
+  assert.equal(trade.runnerTargetR, 3);
+  assert.equal(trade.targets.tp3.price, 51_500);
 });

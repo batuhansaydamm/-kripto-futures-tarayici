@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { floorToStep, roundToTick } from "./binance.js";
+import { deriveStagedTargets } from "./radar.js";
 
 const terminalOrder = new Set(["FILLED", "CANCELED", "EXPIRED", "REJECTED"]);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,6 +43,63 @@ function splitQuantities(total, step) {
   if (!(tp1 > 0) || !(tp2 > 0) || !(tp3 > 0))
     throw new Error("Pozisyon miktarı 30/30/40 çıkış için çok küçük.");
   return { tp1, tp2, tp3 };
+}
+
+export function rebasePackageAfterFill(
+  package_,
+  candidate,
+  fillPrice,
+  rules,
+  maxDeviationR = 0.35,
+) {
+  const entry = Number(candidate.entry);
+  const fill = Number(fillPrice);
+  const initialRisk = Math.abs(entry - Number(candidate.stop));
+  if (!(fill > 0) || !(initialRisk > 0))
+    throw new Error("Fill sonrası seviye hesabı için giriş/risk geçersiz.");
+
+  const deviationR = Math.abs(fill - entry) / initialRisk;
+  if (deviationR > maxDeviationR) {
+    const error = new Error(
+      `Gerçek fill aday fiyatından ${deviationR.toFixed(2)}R saptı; işlem güvenle kapatılacak.`,
+    );
+    error.code = "FILL_DEVIATION";
+    throw error;
+  }
+
+  const direction = candidate.side === "LONG" ? 1 : -1;
+  const fallbackR = (price) =>
+    Math.max(0.1, (direction * (Number(price) - entry)) / initialRisk);
+  const derived = Array.isArray(candidate.barriers)
+    ? deriveStagedTargets(candidate.side, fill, initialRisk, candidate.barriers)
+    : {
+        tp1: fill + direction * initialRisk * fallbackR(candidate.tp1),
+        tp2: fill + direction * initialRisk * fallbackR(candidate.tp2),
+        tp3: fill + direction * initialRisk * fallbackR(candidate.tp3),
+        blockingBarrier: false,
+      };
+  if (derived.blockingBarrier) {
+    const error = new Error(
+      `Gerçek fill sonrasında ${derived.blockingLabel || "güçlü yapısal bariyer"} hedef alanını geçersiz kıldı.`,
+    );
+    error.code = "FILL_BLOCKED";
+    throw error;
+  }
+
+  package_.expectedNotional = package_.quantity * fill;
+  package_.stopPrice = roundToTick(
+    fill - direction * initialRisk,
+    rules.tickSize,
+  );
+  for (const [name, price] of Object.entries({
+    tp1: derived.tp1,
+    tp2: derived.tp2,
+    tp3: derived.tp3,
+  })) {
+    package_.targets[name].price = roundToTick(price, rules.tickSize);
+  }
+  package_.fillDeviationR = +deviationR.toFixed(3);
+  return package_;
 }
 
 export function buildDryRunPackage(candidate, rules, settings) {
@@ -119,8 +177,8 @@ export async function executeProtectedTrade(
     entryOrderId: null,
     stopOrderId: null,
     targetOrderIds: [],
-    initialStopPrice: package_.stopPrice,
     protectionLevel: "ORIGINAL",
+    runnerTargetR: 2.5,
   };
   try {
     const entry = await client.newOrder({
@@ -134,6 +192,13 @@ export async function executeProtectedTrade(
     const filled = await waitForFill(client, trade.symbol, entry);
     trade.proofLevel = "ENTRY_FILLED";
     trade.entryAveragePrice = Number(filled.avgPrice || candidate.entry);
+    rebasePackageAfterFill(
+      trade,
+      candidate,
+      trade.entryAveragePrice,
+      rules,
+    );
+    trade.initialStopPrice = trade.stopPrice;
     await onProgress({ ...trade });
 
     const stop = await client.newOrder({
@@ -166,6 +231,9 @@ export async function executeProtectedTrade(
         priceProtect: true,
         newClientOrderId: `V132-${name.toUpperCase()}-${trade.clientTradeId.slice(0, 10)}`,
       });
+      const targetProof = await client.queryOrder(trade.symbol, order.orderId);
+      if (targetProof.status !== "NEW")
+        throw new Error(`${name.toUpperCase()} emri NEW değil: ${targetProof.status}`);
       trade.targetOrderIds.push({ name, orderId: order.orderId });
       await onProgress({ ...trade });
     }

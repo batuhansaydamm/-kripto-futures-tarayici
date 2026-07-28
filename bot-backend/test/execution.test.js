@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildDryRunPackage,
   executeProtectedTrade,
+  rebasePackageAfterFill,
 } from "../src/execution.js";
 import { floorToStep, roundToTick } from "../src/binance.js";
 
@@ -49,7 +50,12 @@ function protectedMock({ rejectStop = false } = {}) {
     async positionMode() { return { dualSidePosition: false }; },
     async account() { return { availableBalance: "1000" }; },
     async positionRisk() {
-      return { symbol: "BTCUSDT", positionAmt: calls.some((x) => x.type === "MARKET") ? "0.01" : "0" };
+      const entered = calls.some((x) => x.type === "MARKET" && !x.reduceOnly);
+      const closed = calls.some((x) => x.type === "MARKET" && x.reduceOnly);
+      return {
+        symbol: "BTCUSDT",
+        positionAmt: entered && !closed ? "0.01" : "0",
+      };
     },
     async setMarginType(symbol, marginType) {
       calls.push({ op: "margin", symbol, marginType });
@@ -71,7 +77,9 @@ function protectedMock({ rejectStop = false } = {}) {
     async queryOrder(_symbol, id) {
       if (id === 102)
         return { orderId: id, status: rejectStop ? "REJECTED" : "NEW" };
-      return { orderId: id, status: "FILLED", avgPrice: "50000" };
+      if (id === 101)
+        return { orderId: id, status: "FILLED", avgPrice: "50000" };
+      return { orderId: id, status: "NEW" };
     },
     async cancelAll() {
       calls.push({ op: "cancelAll" });
@@ -97,6 +105,24 @@ test("korumalı zincir isolated → x10 → entry → stop proof → 3 TP sıras
   assert.equal(client.calls[1].op, "leverage");
   assert.equal(client.calls[2].type, "MARKET");
   assert.equal(client.calls[3].type, "STOP_MARKET");
+});
+
+test("gerçek fill sonrası stop ve hedefler gerçek ortalama fiyata yeniden bazlanır", () => {
+  const package_ = buildDryRunPackage(candidate, rules, settings);
+  rebasePackageAfterFill(package_, candidate, 50_100, rules);
+  assert.equal(package_.stopPrice, 49_600);
+  assert.equal(package_.targets.tp1.price, 50_600);
+  assert.equal(package_.targets.tp2.price, 51_100);
+  assert.equal(package_.targets.tp3.price, 51_600);
+  assert.equal(package_.fillDeviationR, 0.2);
+});
+
+test("gerçek fill 0.35R'den fazla saparsa seviyeler kullanılmaz", () => {
+  const package_ = buildDryRunPackage(candidate, rules, settings);
+  assert.throws(
+    () => rebasePackageAfterFill(package_, candidate, 50_200, rules),
+    (error) => error.code === "FILL_DEVIATION",
+  );
 });
 
 test("stop doğrulanmazsa hata verir ve acil market kapatma çağırır", async () => {

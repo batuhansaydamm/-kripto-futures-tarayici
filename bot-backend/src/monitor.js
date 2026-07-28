@@ -18,6 +18,40 @@ function btcSideOf(btc15, btc1) {
       : 0;
 }
 
+function liveVolumeContext(rows, direction, now = Date.now()) {
+  const all = Array.isArray(rows) ? rows : [];
+  const closed = all.filter((row) => Number(row[6]) < now);
+  const current = all.at(-1);
+  const base = closed
+    .slice(-20)
+    .map((row) => Number(row[7]) || Number(row[5]) * Number(row[4]));
+  const baseAverage = base.length
+    ? base.reduce((sum, value) => sum + value, 0) / base.length
+    : 0;
+  if (!current || Number(current[6]) < now || !(baseAverage > 0))
+    return { pace: null, reversal: false, fading: false };
+
+  const elapsed = Math.max(
+    0.12,
+    Math.min(1, (now - Number(current[0])) / (15 * 60 * 1000)),
+  );
+  const quoteVolume =
+    Number(current[7]) || Number(current[5]) * Number(current[4]);
+  const pace = quoteVolume / elapsed / baseAverage;
+  const open = Number(current[1]);
+  const high = Number(current[2]);
+  const low = Number(current[3]);
+  const close = Number(current[4]);
+  const range = Math.max(high - low, Number.EPSILON);
+  const bodyRatio = Math.abs(close - open) / range;
+  const against = direction * (close - open) < 0;
+  return {
+    pace,
+    reversal: against && pace >= 1.35 && bodyRatio >= 0.45,
+    fading: elapsed >= 0.3 && pace <= 0.55,
+  };
+}
+
 async function oiChangePct(marketClient, symbol) {
   try {
     const history = await marketClient.get("/futures/data/openInterestHist", {
@@ -48,8 +82,10 @@ export async function evaluatePosition(marketClient, trade, position) {
   const symbol = trade.symbol;
   const direction = trade.side === "LONG" ? 1 : -1;
   const entry = Number(trade.entryAveragePrice ?? trade.entry);
-  const stop = Number(trade.stopPrice ?? trade.stop);
-  const risk = Math.abs(entry - stop);
+  const initialStop = Number(
+    trade.initialStopPrice ?? trade.stopPrice ?? trade.stop,
+  );
+  const risk = Math.abs(entry - initialStop);
   const markPrice = Number(position?.markPrice) || entry;
 
   let k15;
@@ -104,6 +140,7 @@ export async function evaluatePosition(marketClient, trade, position) {
   const t1 = trendOf(m1);
   const btcSide = symbol === "BTCUSDT" ? 0 : btcSideOf(b15, b1);
   const oiChg = await oiChangePct(marketClient, symbol);
+  const volume = liveVolumeContext(k15, direction);
 
   const rNow = risk
     ? (direction * (markPrice - entry)) / risk
@@ -112,16 +149,28 @@ export async function evaluatePosition(marketClient, trade, position) {
   const structureFlip = t15 === -direction && t1 === -direction;
   const btcAgainst = btcSide !== 0 && btcSide === -direction;
   const oiFading = oiChg !== null && oiChg <= -3 && rNow < 1;
+  const volumeReversal = volume.reversal;
+  const volumeFading = volume.fading;
 
   let action = "HOLD";
   let reason = "Yapı ve momentum pozisyon yönünü henüz bozmadı.";
   let suggestedStopR = null;
+  let targetAction = null;
+  let targetReason = "";
 
-  if (structureFlip && (btcAgainst || oiFading)) {
+  if (structureFlip && (btcAgainst || oiFading || volumeReversal)) {
     action = "EARLY_EXIT_SUGGESTED";
     reason = `15D+1S yapı tersine döndü ve ${
-      btcAgainst ? "BTC pozisyona karşı" : "OI katılımı düşüyor"
+      btcAgainst
+        ? "BTC pozisyona karşı"
+        : oiFading
+          ? "OI katılımı düşüyor"
+          : "canlı hacimli ters mum oluşuyor"
     }; TP/SL beklemeden erken çıkış değerlendirilebilir.`;
+  } else if (volumeReversal && btcAgainst && rNow < 1) {
+    action = "EARLY_EXIT_SUGGESTED";
+    reason =
+      "Canlı 15D mum hacimli biçimde pozisyona ters ve BTC de karşı yönde; erken çıkış.";
   } else if (structureFlip) {
     action = "TIGHTEN_STOP_SUGGESTED";
     reason = "15D+1S yapı pozisyona karşı döndü; stopu daraltmak düşünülebilir.";
@@ -135,6 +184,34 @@ export async function evaluatePosition(marketClient, trade, position) {
     suggestedStopR = 0;
   }
 
+  if (
+    action !== "EARLY_EXIT_SUGGESTED" &&
+    rNow >= 1.25 &&
+    rNow < 2.8 &&
+    trade.runnerTargetMode !== "DEFENSIVE" &&
+    t15 === direction &&
+    t1 === direction &&
+    !btcAgainst &&
+    !volumeReversal &&
+    volume.pace !== null &&
+    volume.pace >= 1.25 &&
+    (oiChg === null || oiChg >= 0)
+  ) {
+    targetAction = "EXTEND_RUNNER_TO_3R";
+    targetReason =
+      `Trend hizalı; canlı hacim temposu ${volume.pace.toFixed(2)}x ve katılım korunuyor.`;
+  } else if (
+    action !== "EARLY_EXIT_SUGGESTED" &&
+    rNow >= 0.5 &&
+    rNow < 1.8 &&
+    (volumeFading || volumeReversal)
+  ) {
+    targetAction = "DEFENSIVE_RUNNER_TO_2R";
+    targetReason = volumeReversal
+      ? "Canlı hacimli ters mum nedeniyle runner hedefi savunmacı seviyeye çekildi."
+      : "Canlı hacim katılımı zayıfladığı için runner hedefi savunmacı seviyeye çekildi.";
+  }
+
   return {
     ok: true,
     action,
@@ -144,10 +221,16 @@ export async function evaluatePosition(marketClient, trade, position) {
     t1,
     btcSide,
     oiChg: oiChg === null ? null : +oiChg.toFixed(2),
+    liveVolumePace:
+      volume.pace === null ? null : +volume.pace.toFixed(2),
+    volumeReversal,
+    volumeFading,
     structureFlip,
     btcAgainst,
     oiFading,
     suggestedStopR,
+    targetAction,
+    targetReason,
     evaluatedAt: Date.now(),
   };
 }

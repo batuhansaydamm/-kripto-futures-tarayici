@@ -21,11 +21,25 @@ function series(count, { start = 100, step = 0 } = {}) {
   return rows;
 }
 
-function makeMarketClient({ symbolStep, btcStep, oiChg }) {
+function makeMarketClient({ symbolStep, btcStep, oiChg, liveCandle = null }) {
   const symbolK15 = series(120, { start: 100, step: symbolStep });
   const symbolH1 = series(100, { start: 100, step: symbolStep * 4 });
   const btcK15 = series(120, { start: 60000, step: btcStep });
   const btcH1 = series(100, { start: 60000, step: btcStep * 4 });
+  if (liveCandle) {
+    const now = Date.now();
+    symbolK15.push([
+      now - 5 * 60_000,
+      liveCandle.open,
+      liveCandle.high,
+      liveCandle.low,
+      liveCandle.close,
+      liveCandle.volume,
+      now + 10 * 60_000,
+      liveCandle.volume * liveCandle.close,
+      0, 0, 0, 0,
+    ]);
+  }
   return {
     async get(path, params = {}) {
       if (path === "/futures/data/openInterestHist") {
@@ -109,4 +123,57 @@ test("veri çekme hatasında ok:false ve HOLD ile güvenli tarafta kalır", asyn
   assert.equal(result.ok, false);
   assert.equal(result.action, "HOLD");
   assert.match(result.reason, /alınamadı/);
+});
+
+test("stop breakeven'a taşınsa bile rNow orijinal risk ile hesaplanır", async () => {
+  const client = makeMarketClient({ symbolStep: 0.5, btcStep: 0.5, oiChg: 1 });
+  const trade = {
+    symbol: "TESTUSDT",
+    side: "LONG",
+    entryAveragePrice: 100,
+    initialStopPrice: 98,
+    stopPrice: 100.1,
+  };
+  const result = await evaluatePosition(client, trade, { markPrice: "102.1" });
+  assert.equal(result.rNow, 1.05);
+  assert.equal(result.action, "MOVE_STOP_TO_BREAKEVEN_SUGGESTED");
+});
+
+test("canlı hacimli ters mum ve BTC karşı yönü erken çıkış üretir", async () => {
+  const client = makeMarketClient({
+    symbolStep: 0.5,
+    btcStep: -0.5,
+    oiChg: 1,
+    liveCandle: { open: 161, high: 162, low: 157, close: 158, volume: 80 },
+  });
+  const trade = {
+    symbol: "TESTUSDT",
+    side: "LONG",
+    entryAveragePrice: 160,
+    initialStopPrice: 156,
+    stopPrice: 156,
+  };
+  const result = await evaluatePosition(client, trade, { markPrice: "161" });
+  assert.equal(result.volumeReversal, true);
+  assert.equal(result.btcAgainst, true);
+  assert.equal(result.action, "EARLY_EXIT_SUGGESTED");
+});
+
+test("trend ve canlı hacim güçlü olduğunda runner 3R uzatma sinyali üretir", async () => {
+  const client = makeMarketClient({
+    symbolStep: 0.5,
+    btcStep: 0.5,
+    oiChg: 1,
+    liveCandle: { open: 160, high: 163, low: 159.5, close: 162, volume: 80 },
+  });
+  const trade = {
+    symbol: "TESTUSDT",
+    side: "LONG",
+    entryAveragePrice: 156,
+    initialStopPrice: 152,
+    stopPrice: 152,
+  };
+  const result = await evaluatePosition(client, trade, { markPrice: "161.2" });
+  assert.equal(result.targetAction, "EXTEND_RUNNER_TO_3R");
+  assert.ok(result.liveVolumePace >= 1.25);
 });
