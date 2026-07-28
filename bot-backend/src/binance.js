@@ -29,6 +29,7 @@ export class BinanceClient {
     this.lastRequestAt = 0;
     this.timeOffset = 0;
     this.exchangeInfoCache = null;
+    this.cooldownUntil = 0;
   }
 
   async throttle() {
@@ -46,6 +47,14 @@ export class BinanceClient {
   }
 
   async request(method, path, params = {}, { signed = false, retries = 2 } = {}) {
+    if (Date.now() < this.cooldownUntil) {
+      throw new BinanceError(
+        `Binance bekleme süresi aktif; ${new Date(this.cooldownUntil).toLocaleString(
+          "tr-TR",
+        )} öncesi istek gönderilmeyecek.`,
+        { status: 429, code: -1003 },
+      );
+    }
     const values = { ...params };
     if (signed) {
       if (!this.apiKey || !this.apiSecret)
@@ -87,7 +96,18 @@ export class BinanceClient {
       payload = null;
     }
     if (!response.ok) {
-      if ((response.status === 429 || response.status >= 500) && retries > 0) {
+      if (response.status === 418 || response.status === 429) {
+        const timestamp = String(payload?.msg || "").match(/\b\d{13}\b/)?.[0];
+        const retryAfter = Number(response.headers.get("retry-after") || 0);
+        this.cooldownUntil = timestamp
+          ? Number(timestamp)
+          : Date.now() + Math.max(60_000, retryAfter * 1000);
+        throw new BinanceError(
+          payload?.msg || `Binance HTTP ${response.status}`,
+          { status: response.status, code: payload?.code, payload },
+        );
+      }
+      if (response.status >= 500 && retries > 0) {
         await sleep(700 * (3 - retries));
         return this.request(method, path, params, { signed, retries: retries - 1 });
       }
