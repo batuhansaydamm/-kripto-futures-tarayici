@@ -5,7 +5,10 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
     <title>Tarayıcı</title>
     <!-- Mobile-hosted V13 scanner -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -312,6 +315,20 @@
       }
       .caution b {
         color: var(--amber);
+      }
+      .execution-card {
+        margin: 0 0 18px;
+        padding: 14px;
+        border: 1px solid #1e5c3e;
+        border-radius: 9px;
+        background: var(--longdim);
+        color: var(--dim);
+        font:
+          11.5px/1.65 "IBM Plex Mono",
+          monospace;
+      }
+      .execution-card b {
+        color: var(--long);
       }
       .footer {
         border-top: 1px solid var(--line);
@@ -685,6 +702,55 @@
       .opportunity-state { margin-top:9px; color:var(--amber); font:700 10px "IBM Plex Mono",monospace; }
       .radar-disclaimer { margin-top:14px; color:var(--text-faint); font:10px/1.6 "IBM Plex Mono",monospace; }
       @media (max-width: 800px) {
+        body {
+          padding:
+            max(8px, env(safe-area-inset-top))
+            max(8px, env(safe-area-inset-right))
+            max(8px, env(safe-area-inset-bottom))
+            max(8px, env(safe-area-inset-left));
+        }
+        .app {
+          min-height: calc(100dvh - 16px);
+          border-radius: 10px;
+        }
+        .header {
+          padding: 20px 18px 14px;
+        }
+        .title-row {
+          display: block;
+        }
+        .key-btn {
+          display: inline-block;
+          margin-top: 12px;
+        }
+        .cmd-row {
+          margin: 14px 18px 0;
+          padding: 9px 10px;
+        }
+        .cmd-row input,
+        .position-fields input,
+        .position-fields select {
+          font-size: 16px;
+        }
+        .body {
+          padding-left: 18px;
+          padding-right: 18px;
+        }
+        .result-top {
+          display: block;
+        }
+        .asof {
+          margin-top: 8px;
+          text-align: left;
+        }
+        .conf {
+          align-items: flex-start;
+          flex-wrap: wrap;
+        }
+        .track {
+          width: 100%;
+          max-width: none;
+        }
         .position-fields {
           grid-template-columns: repeat(2, 1fr);
         }
@@ -703,7 +769,7 @@
       <div class="tape-wrap"><div class="tape" id="tape"></div></div>
       <header class="header">
         <div class="eyebrow">
-          V13.2 · Structure & Execution Engine · HTF Bariyer + OOS Kademeli Test
+          V13.3 · Structure & Execution Engine · HTF Bariyer + OOS Kademeli Test
         </div>
         <div class="title-row">
           <div>
@@ -834,7 +900,7 @@
         input = $("coinInput"),
         btn = $("scanBtn");
       let manageMode = false;
-      const ENGINE_VERSION = "V13.2_STRUCTURE_EXECUTION";
+      const ENGINE_VERSION = "V13.3_STRUCTURE_EXECUTION";
       const terms = [
         "SPRING",
         "SOS",
@@ -881,7 +947,7 @@
       function render(d) {
         const c = Math.max(0, Math.min(10, Number(d.confidence) || 0)) * 10,
           m = d.memory || {};
-        body.innerHTML = `<div class="result"><div class="result-top"><div><div class="coin">${esc(d.coin || "—")}</div><div class="mono">${esc(d.current_price_context || "")}</div></div><div class="mono asof">${esc(d.as_of || "")}</div></div><div class="badges"><div class="badge ${biasClass(d.bias)}">${biasLabel(d.bias)}</div><div class="badge ${riskClass(d.risk_level)}">RİSK: ${esc(d.risk_level || "—")}</div><div class="badge neutral">SETUP: ${esc(d.setup || "—")}</div><div class="badge neutral">AİLE: ${esc(d.setupFamily || "—")}</div><div class="badge neutral">REJİM: ${esc(d.regime || "—")}</div><div class="badge neutral">VOLUME: ${esc(d.volumeRegime || "—")}</div><div class="badge neutral">TİP: ${esc(d.tradeType || "—")}</div></div><div class="action">${esc(d.action || "")}</div><div class="plan"><div><small>ENTRY / RECLAIM BÖLGESİ</small><strong>${esc(d.entry || "—")}</strong></div><div><small>15D TEYİT</small><strong>${esc(d.trigger || "—")}</strong></div><div><small>DERİN / İDEAL</small><strong>${esc(d.deepEntry || "—")}</strong></div><div><small>STOP</small><strong>${esc(d.stop || "—")}</strong></div><div><small>TP1</small><strong>${esc(d.tp1 || "—")}</strong></div><div><small>TP2</small><strong>${esc(d.tp2 || "—")}</strong></div><div><small>R/R</small><strong>${esc(d.rr || "—")}</strong></div><div><small>HEDEF DAYANAĞI</small><strong>${esc(d.targetBasis || "—")}</strong></div><div><small>ENTRY UZAKLIĞI</small><strong>${esc(d.entryDistance || "—")}</strong></div><div><small>HAREKET KALİTESİ</small><strong>${esc(d.moveQuality || "—")}</strong></div><div><small>TP1 TAHMİNİ</small><strong>${esc(d.targetEta || "—")}</strong></div><div><small>SETUP ÖMRÜ</small><strong>${esc(d.setupLife || "—")}</strong></div><div><small>YÖNETİM MODU</small><strong>${esc(d.managementMode || "—")}</strong></div></div><div class="conf"><div class="conf-label">Kural uyumu</div><div class="track"><div class="fill" style="width:${c}%;background:var(--purple)"></div></div><div class="mono">${esc(d.confidence ?? "—")}/10 · olasılık değildir</div></div><ul class="reasons">${(Array.isArray(d.reasons) ? d.reasons : []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul><div class="caution"><b>Dikkat:</b> ${esc(d.caution || "")}</div><div class="memory"><div class="memory-title">V13.2 KANIT DEFTERİ · ${esc(m.symbol || "")}</div><div class="memory-grid"><div><b>${esc(m.samples ?? 0)}</b>çakışmayan işlem</div><div><b>%${esc(m.winRate ?? "—")}</b>tarihsel erişim</div><div><b>${esc(m.expectancy ?? "—")}R</b>net beklenti</div><div><b>${esc(m.profitFactor ?? "—")}</b>profit factor</div><div><b>%${esc(m.wilson ?? "—")}</b>güven alt sınırı</div><div><b>${esc(m.maxDD ?? "—")}R</b>maks. düşüş</div><div><b>${esc(m.resolved ?? 0)}</b>sanal sonuç</div><div><b>${esc(m.liveWinRate ?? "—")}</b>sanal erişim</div></div><div class="memory-note">${esc(m.note || "")}</div><div class="history">${esc(m.lastSignals || "Henüz sonuçlanmış sanal sinyal yok.")}</div></div></div>`;
+        body.innerHTML = `<div class="result"><div class="result-top"><div><div class="coin">${esc(d.coin || "—")}</div><div class="mono">${esc(d.current_price_context || "")}</div></div><div class="mono asof">${esc(d.as_of || "")}</div></div><div class="badges"><div class="badge ${biasClass(d.bias)}">${biasLabel(d.bias)}</div><div class="badge ${riskClass(d.risk_level)}">RİSK: ${esc(d.risk_level || "—")}</div><div class="badge neutral">SETUP: ${esc(d.setup || "—")}</div><div class="badge neutral">AİLE: ${esc(d.setupFamily || "—")}</div><div class="badge neutral">REJİM: ${esc(d.regime || "—")}</div><div class="badge neutral">VOLUME: ${esc(d.volumeRegime || "—")}</div><div class="badge neutral">TİP: ${esc(d.tradeType || "—")}</div></div><div class="action">${esc(d.action || "")}</div><div class="plan"><div><small>ENTRY / RECLAIM BÖLGESİ</small><strong>${esc(d.entry || "—")}</strong></div><div><small>15D TEYİT</small><strong>${esc(d.trigger || "—")}</strong></div><div><small>DERİN / İDEAL</small><strong>${esc(d.deepEntry || "—")}</strong></div><div><small>STOP</small><strong>${esc(d.stop || "—")}</strong></div><div><small>TP1 · %30</small><strong>${esc(d.tp1 || "—")}</strong></div><div><small>TP2 · %30</small><strong>${esc(d.tp2 || "—")}</strong></div><div><small>TP3 / RUNNER · %40</small><strong>${esc(d.runner || "—")}</strong></div><div><small>R/R</small><strong>${esc(d.rr || "—")}</strong></div><div><small>HEDEF DAYANAĞI</small><strong>${esc(d.targetBasis || "—")}</strong></div><div><small>ENTRY UZAKLIĞI</small><strong>${esc(d.entryDistance || "—")}</strong></div><div><small>HAREKET KALİTESİ</small><strong>${esc(d.moveQuality || "—")}</strong></div><div><small>TP1 TAHMİNİ</small><strong>${esc(d.targetEta || "—")}</strong></div><div><small>SETUP ÖMRÜ</small><strong>${esc(d.setupLife || "—")}</strong></div><div><small>YÖNETİM MODU</small><strong>${esc(d.managementMode || "—")}</strong></div></div><div class="conf"><div class="conf-label">Kural uyumu</div><div class="track"><div class="fill" style="width:${c}%;background:var(--purple)"></div></div><div class="mono">${esc(d.confidence ?? "—")}/10 · olasılık değildir</div></div><ul class="reasons">${(Array.isArray(d.reasons) ? d.reasons : []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul><div class="caution"><b>Dikkat:</b> ${esc(d.caution || "")}</div><div class="memory"><div class="memory-title">V13.3 KANIT DEFTERİ · ${esc(m.symbol || "")}</div><div class="memory-grid"><div><b>${esc(m.samples ?? 0)}</b>çakışmayan işlem</div><div><b>%${esc(m.winRate ?? "—")}</b>tarihsel erişim</div><div><b>${esc(m.expectancy ?? "—")}R</b>net beklenti</div><div><b>${esc(m.profitFactor ?? "—")}</b>profit factor</div><div><b>%${esc(m.wilson ?? "—")}</b>güven alt sınırı</div><div><b>${esc(m.maxDD ?? "—")}R</b>maks. düşüş</div><div><b>${esc(m.resolved ?? 0)}</b>sanal sonuç</div><div><b>${esc(m.liveWinRate ?? "—")}</b>sanal erişim</div></div><div class="memory-note">${esc(m.note || "")}</div><div class="history">${esc(m.lastSignals || "Henüz sonuçlanmış sanal sinyal yok.")}</div></div></div>`;
       }
       const renderCore = render;
       render = function (d) {
@@ -902,8 +968,14 @@
         if (confLabel) confLabel.textContent = "Kural uyumu";
         const memoryTitle = body.querySelector(".memory-title");
         if (memoryTitle)
-          memoryTitle.textContent = `V13.2 KANIT DEFTERİ · ${d.memory?.symbol || ""}`;
+          memoryTitle.textContent = `V13.3 KANIT DEFTERİ · ${d.memory?.symbol || ""}`;
         const plan = body.querySelector(".plan");
+        const action = body.querySelector(".action");
+        if (action && d.bias !== "NO_TRADE")
+          action.insertAdjacentHTML(
+            "afterend",
+            `<div class="execution-card"><b>V13.3 MANUEL UYGULAMA</b><br>Emri planlanan bölge/teyit dışında marketten kovalama. Gerçek fill plan fiyatından 0,35R fazla saparsa işlemi atla; kabul edilen fill sonrası aynı başlangıç riskini koruyarak SL/TP fiyatlarını fill'e yeniden bazla.<br>Çıkış: %30 TP1 · %30 TP2 · %40 runner. +1R sonrası stopu maliyet üstüne, +1,5R sonrası +1R'a taşı. Güçlü hizalı hacimde runner 3R'a uzatılabilir; hacim sönmesi veya ters baskıda 2R savunmacı hedef kullan.</div>`,
+          );
         if (plan && d.reversal?.active)
           plan.insertAdjacentHTML(
             "beforebegin",
@@ -2778,7 +2850,7 @@
             .filter(Boolean)
             .join(" | "),
           note:
-            "V13.2 KRONOLOJİK KANIT DEFTERİ · Yüzdeler olasılık değil yalnız OOS geçmiş erişim sıklığıdır. n<20 yetersiz örnektir. Backtest 30/30/40 kademeli çıkış ve setup-aile maliyetlerini kullanır. Kayıt yalnız bu cihazdadır.",
+            "V13.3 KRONOLOJİK KANIT DEFTERİ · Yüzdeler olasılık değil yalnız OOS geçmiş erişim sıklığıdır. n<20 yetersiz örnektir. Backtest 30/30/40 kademeli çıkış ve setup-aile maliyetlerini kullanır. Kayıt yalnız bu cihazdadır.",
         };
       }
       function readPosition() {
@@ -3591,6 +3663,7 @@
           structuralStop: structuralStop ? fmt(structuralStop) : "—",
           tp1: tp1 ? fmt(tp1) : "—",
           tp2: tp2 ? fmt(tp2) : "—",
+          runner: targets?.runner ? fmt(targets.runner) : "—",
           rr:
             side && targets
               ? `TP1: +${targets.safeR.toFixed(2)}R · TP2: +${targets.mainR.toFixed(2)}R · Stop: -1R`
@@ -4771,7 +4844,7 @@
         const state = loadRadar(), report = radarReport(state);
         const blob = new Blob([JSON.stringify({
           exportedAt:new Date().toISOString(),
-          definition:"V13.2 Structure & Execution Engine: fresh Binance bookTicker bid/ask doğrulanmış fill; kapalı 1D mum + aggTrades path; HTF/VWAP yapısal hedef bariyerleri, BOS önem skoru, OOS 30/30/40 kademeli test, execution-aile maliyetleri, gerçek Wilder ADX/CHOP rejimi ve simetrik exhaustion. Kalibre edilmemiş olasılık gösterilmez.",
+          definition:"V13.3 Structure & Execution Engine: fresh Binance bookTicker bid/ask doğrulanmış fill; kapalı 1D mum + aggTrades path; HTF/VWAP yapısal hedef bariyerleri, BOS önem skoru, OOS 30/30/40 kademeli test, execution-aile maliyetleri, gerçek Wilder ADX/CHOP rejimi ve simetrik exhaustion. Kalibre edilmemiş olasılık gösterilmez.",
           report,
           opportunities:state.opportunities,
         },null,2)],{type:"application/json"});
