@@ -1,11 +1,11 @@
 {
   "name": "v13-2-binance-futures-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/server.mjs",
-    "check": "node --check src/server.mjs"
+    "start": "sh -c 'node src/server.mjs & exec node src/auto-runner.mjs'",
+    "check": "node --check src/server.mjs && node --check src/auto-runner.mjs"
   },
   "engines": {
     "node": ">=20"
