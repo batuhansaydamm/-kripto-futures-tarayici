@@ -2,6 +2,11 @@
 
 Bu servis V13.2 Fırsat Radarı kurallarını gerçek Binance USDⓈ-M herkese açık piyasa verisiyle sunucu tarafında çalıştırır ve **yalnız Binance USDⓈ-M Futures Testnet** için emir zinciri hazırlar.
 
+Tarama evreni tek toplu 24 saat ticker çağrısından oluşturulur: likidite
+filtresini geçen **15 en çok yükselen + 10 en çok düşen + 5 en yüksek hacimli**
+USDT perpetual sözleşme seçilir. Gruplar arasında çakışan semboller yalnız bir
+kez taranır; benzersiz sembol sayısı bu nedenle en fazla 30 olabilir.
+
 ## Güvenlik
 
 - Varsayılan `DRY_RUN=true` ve `BOT_ENABLED=false`.
