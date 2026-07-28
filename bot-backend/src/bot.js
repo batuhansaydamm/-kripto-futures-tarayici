@@ -1,4 +1,5 @@
 import { executeProtectedTrade } from "./execution.js";
+import { evaluatePosition } from "./monitor.js";
 import { scanBestCandidate } from "./radar.js";
 
 export class TradingBot {
@@ -38,6 +39,25 @@ export class TradingBot {
       trade.markPrice = Number(position.markPrice || 0);
       trade.unrealizedPnl = Number(position.unRealizedProfit || 0);
       trade.lastReconciledAt = Date.now();
+      try {
+        const signal = await evaluatePosition(this.marketClient, trade, position);
+        trade.managementSignal = signal;
+        if (signal.ok && signal.action !== "HOLD") {
+          this.store.event("POSITION_MONITOR", {
+            symbol: trade.symbol,
+            action: signal.action,
+            reason: signal.reason,
+            rNow: signal.rNow,
+          });
+        }
+      } catch (monitorError) {
+        trade.managementSignal = {
+          ok: false,
+          action: "HOLD",
+          reason: `İzleme hatası: ${monitorError.message}`,
+          evaluatedAt: Date.now(),
+        };
+      }
       await this.store.save();
       return;
     }
