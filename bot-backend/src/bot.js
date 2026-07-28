@@ -2,8 +2,9 @@ import { executeProtectedTrade } from "./execution.js";
 import { scanBestCandidate } from "./radar.js";
 
 export class TradingBot {
-  constructor({ client, store, config }) {
+  constructor({ client, marketClient = client, store, config }) {
     this.client = client;
+    this.marketClient = marketClient;
     this.store = store;
     this.config = config;
     this.busy = false;
@@ -82,7 +83,7 @@ export class TradingBot {
       const [allowed, reason] = this.limitsOkay();
       if (!allowed && !forceScan) return { skipped: true, reason };
 
-      const candidate = await scanBestCandidate(this.client);
+      const candidate = await scanBestCandidate(this.marketClient);
       this.store.state.lastScanAt = Date.now();
       this.store.state.lastCandidate = candidate;
       this.store.state.lastError = "";
