@@ -20,6 +20,7 @@ export const config = Object.freeze({
   managementEnabled: bool("MANAGEMENT_ENABLED", true),
   port: number("PORT", 3000),
   scanIntervalMs: number("SCAN_INTERVAL_MS", 15 * 60 * 1000),
+  marketRequestIntervalMs: number("MARKET_REQUEST_INTERVAL_MS", 750),
   marginUsdt: number("MARGIN_USDT", 50),
   leverage: number("LEVERAGE", 10),
   maxTotalTrades: number("MAX_TOTAL_TRADES", 5),
@@ -37,9 +38,12 @@ export function validateConfig() {
     );
   }
   const marketUrl = new URL(config.marketDataBaseUrl);
-  if (marketUrl.hostname !== "fapi.binance.com") {
+  if (
+    marketUrl.hostname !== "fapi.binance.com" &&
+    marketUrl.hostname !== "testnet.binancefuture.com"
+  ) {
     throw new Error(
-      "Piyasa verisi yalnız resmi Binance Futures public endpoint'inden alınabilir.",
+      "Piyasa verisi yalnız resmi Binance Futures production/testnet endpoint'inden alınabilir.",
     );
   }
   if (config.leverage !== 10)

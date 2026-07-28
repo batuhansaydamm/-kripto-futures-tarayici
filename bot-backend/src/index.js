@@ -14,7 +14,7 @@ const client = new BinanceClient({
 });
 const marketClient = new BinanceClient({
   baseUrl: config.marketDataBaseUrl,
-  minRequestIntervalMs: 150,
+  minRequestIntervalMs: config.marketRequestIntervalMs,
 });
 const bot = new TradingBot({ client, marketClient, store, config });
 startServer({ bot, store, config });

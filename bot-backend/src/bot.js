@@ -12,7 +12,8 @@ export class TradingBot {
     this.busy = false;
     this.reconcilePromise = null;
     this.lastScanAttemptAt = 0;
-    this.marketCooldownUntil = 0;
+    this.marketCooldownUntil = Number(store.state.marketCooldownUntil || 0);
+    this.marketClient.cooldownUntil = this.marketCooldownUntil;
   }
 
   limitsOkay() {
@@ -204,6 +205,12 @@ export class TradingBot {
         this.marketCooldownUntil = timestamp
           ? Number(timestamp)
           : Date.now() + 60 * 60 * 1000;
+        this.marketClient.cooldownUntil = this.marketCooldownUntil;
+        this.store.state.marketCooldownUntil = this.marketCooldownUntil;
+        this.store.state.enabled = false;
+        this.store.event("MARKET_RATE_LIMIT_CIRCUIT_OPEN", {
+          cooldownUntil: this.marketCooldownUntil,
+        });
       }
       this.store.state.lastError = error.message;
       this.store.event("CYCLE_ERROR", {
