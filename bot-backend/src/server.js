@@ -53,6 +53,7 @@ function publicState(store, config, busy) {
     config: {
       dryRun: config.dryRun,
       baseUrl: config.baseUrl,
+      marketDataBaseUrl: config.marketDataBaseUrl,
       marginUsdt: config.marginUsdt,
       leverage: config.leverage,
       maxTotalTrades: config.maxTotalTrades,
