@@ -13,13 +13,36 @@ export class BinanceError extends Error {
 }
 
 export class BinanceClient {
-  constructor({ baseUrl, apiKey = "", apiSecret = "", fetchImpl = fetch }) {
+  constructor({
+    baseUrl,
+    apiKey = "",
+    apiSecret = "",
+    fetchImpl = fetch,
+    minRequestIntervalMs = 0,
+  }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.fetch = fetchImpl;
+    this.minRequestIntervalMs = minRequestIntervalMs;
+    this.requestQueue = Promise.resolve();
+    this.lastRequestAt = 0;
     this.timeOffset = 0;
     this.exchangeInfoCache = null;
+  }
+
+  async throttle() {
+    if (!(this.minRequestIntervalMs > 0)) return;
+    const turn = this.requestQueue.then(async () => {
+      const waitMs = Math.max(
+        0,
+        this.lastRequestAt + this.minRequestIntervalMs - Date.now(),
+      );
+      if (waitMs) await sleep(waitMs);
+      this.lastRequestAt = Date.now();
+    });
+    this.requestQueue = turn.catch(() => {});
+    await turn;
   }
 
   async request(method, path, params = {}, { signed = false, retries = 2 } = {}) {
@@ -44,6 +67,7 @@ export class BinanceClient {
     const url = `${this.baseUrl}${path}${query.size ? `?${query}` : ""}`;
     let response;
     try {
+      await this.throttle();
       response = await this.fetch(url, {
         method,
         headers: this.apiKey ? { "X-MBX-APIKEY": this.apiKey } : {},
