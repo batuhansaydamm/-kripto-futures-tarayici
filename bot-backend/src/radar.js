@@ -188,6 +188,166 @@ function btcContext(k15, k1) {
   };
 }
 
+function utcMarketLevels(k15, k1, k4) {
+  const closed15 = closedRows(k15);
+  const closed1 = closedRows(k1);
+  const closed4 = closedRows(k4);
+  const latest = Number(closed15.at(-1)?.[0] || Date.now());
+  const dayMs = 86_400_000;
+  const dayStart = Math.floor(latest / dayMs) * dayMs;
+  const prevDayStart = dayStart - dayMs;
+  const weekStart =
+    dayStart - ((new Date(dayStart).getUTCDay() + 6) % 7) * dayMs;
+  const prevWeekStart = weekStart - 7 * dayMs;
+  const between = (rows, start, end) =>
+    rows.filter((row) => Number(row[0]) >= start && Number(row[0]) < end);
+  const aggregate = (rows) =>
+    rows.length
+      ? {
+          open: +rows[0][1],
+          high: Math.max(...rows.map((row) => +row[2])),
+          low: Math.min(...rows.map((row) => +row[3])),
+        }
+      : null;
+  const currentDay = between(closed15, dayStart, dayStart + dayMs);
+  const previousDay = aggregate(between(closed1, prevDayStart, dayStart));
+  const currentWeek = aggregate(
+    between(closed4, weekStart, weekStart + 7 * dayMs),
+  );
+  const previousWeek = aggregate(between(closed4, prevWeekStart, weekStart));
+  const baseVolume = currentDay.reduce((sum, row) => sum + Number(row[5]), 0);
+  const quoteVolume = currentDay.reduce(
+    (sum, row) => sum + Number(row[7]),
+    0,
+  );
+  return {
+    dailyOpen: currentDay.length ? +currentDay[0][1] : 0,
+    sessionVwap: baseVolume ? quoteVolume / baseVolume : 0,
+    previousDay,
+    weeklyOpen: currentWeek?.open || 0,
+    previousWeek,
+  };
+}
+
+function levelImportance(rows, level, atr) {
+  if (!level || !atr) return { score: 0, touches: 0, rejected: 0 };
+  const closed = closedRows(rows).slice(-80, -1);
+  const tolerance = Math.max(atr * 0.14, level * 0.0008);
+  const touched = closed.filter(
+    (row) =>
+      Math.abs(+row[2] - level) <= tolerance ||
+      Math.abs(+row[3] - level) <= tolerance,
+  );
+  const rejected = touched.filter((row) => {
+    const range = Math.max(+row[2] - +row[3], Number.EPSILON);
+    const upper = +row[2] - Math.max(+row[1], +row[4]);
+    const lower = Math.min(+row[1], +row[4]) - +row[3];
+    return Math.max(upper, lower) / range >= 0.3;
+  }).length;
+  const avgVolume = avg(closed.slice(-20).map((row) => +row[5])) || 1;
+  const defendedVolume = touched.length
+    ? avg(touched.map((row) => +row[5])) / avgVolume
+    : 0;
+  const score =
+    Math.min(3, touched.length) +
+    Math.min(2, rejected) +
+    (defendedVolume >= 1.35 ? 1 : 0);
+  return { score, touches: touched.length, rejected, defendedVolume };
+}
+
+function structuralBarriers(k15, k1, k4, side, entry, atr) {
+  if (!atr) return [];
+  const closed = closedRows(k15).slice(-96);
+  const levels = utcMarketLevels(k15, k1, k4);
+  const direction = side === "LONG" ? 1 : -1;
+  const tolerance = Math.max(atr * 0.16, entry * 0.0008);
+  const touchCount = (price) =>
+    closed.filter(
+      (row) =>
+        Math.abs(+row[2] - price) <= tolerance ||
+        Math.abs(+row[3] - price) <= tolerance,
+    ).length;
+  const barriers = [];
+  const add = (price, label, baseScore) => {
+    price = Number(price);
+    if (!price || direction * (price - entry) <= 0) return;
+    barriers.push({ price, label, score: baseScore + Math.min(3, touchCount(price)) });
+  };
+  add(levels.dailyOpen, "Günlük açılış", 2);
+  add(levels.sessionVwap, "Seans VWAP", 2);
+  add(levels.previousDay?.high, "Önceki gün yüksek", 3);
+  add(levels.previousDay?.low, "Önceki gün düşük", 3);
+  add(levels.weeklyOpen, "Haftalık açılış", 3);
+  add(levels.previousWeek?.high, "Önceki hafta yüksek", 4);
+  add(levels.previousWeek?.low, "Önceki hafta düşük", 4);
+  for (let i = 2; i < closed.length - 2; i++) {
+    const high = +closed[i][2];
+    const low = +closed[i][3];
+    const swingHigh =
+      high >= +closed[i - 1][2] &&
+      high >= +closed[i - 2][2] &&
+      high >= +closed[i + 1][2] &&
+      high >= +closed[i + 2][2];
+    const swingLow =
+      low <= +closed[i - 1][3] &&
+      low <= +closed[i - 2][3] &&
+      low <= +closed[i + 1][3] &&
+      low <= +closed[i + 2][3];
+    if (side === "LONG" && swingHigh) add(high, "15D swing direnci", 1);
+    if (side === "SHORT" && swingLow) add(low, "15D swing desteği", 1);
+  }
+  return barriers;
+}
+
+export function deriveStagedTargets(side, entry, risk, barriers) {
+  const direction = side === "LONG" ? 1 : -1;
+  if (!(risk > 0))
+    return { tp1: entry, tp2: entry, tp3: entry, blockingBarrier: false };
+  const withDistance = (barriers || [])
+    .map((barrier) => ({
+      ...barrier,
+      distanceR: (direction * (barrier.price - entry)) / risk,
+    }))
+    .filter((barrier) => barrier.distanceR >= 0.2 && barrier.distanceR <= 3.5)
+    .sort((a, b) => a.distanceR - b.distanceR);
+
+  const blocking = withDistance.find(
+    (barrier) => barrier.score >= 3 && barrier.distanceR < 0.45,
+  );
+
+  let safeR = 1;
+  const primary = withDistance.find(
+    (barrier) =>
+      barrier.score >= 3 && barrier.distanceR >= 0.45 && barrier.distanceR < 1.05,
+  );
+  if (primary) safeR = Math.max(0.35, +(primary.distanceR * 0.86).toFixed(2));
+
+  let mainR = 1.5;
+  const secondary = withDistance.find(
+    (barrier) =>
+      barrier.score >= 3 &&
+      barrier.distanceR > safeR + 0.25 &&
+      barrier.distanceR < 1.55,
+  );
+  if (secondary)
+    mainR = Math.max(safeR + 0.3, +(secondary.distanceR * 0.88).toFixed(2));
+
+  const runnerR = 2.5;
+  const price = (r) => entry + direction * risk * r;
+  return {
+    tp1: price(safeR),
+    tp2: price(mainR),
+    tp3: price(runnerR),
+    safeR,
+    mainR,
+    runnerR,
+    blockingBarrier: !!blocking,
+    blockingLabel: blocking?.label || "",
+    barrierUsedTp1: primary?.label || "",
+    barrierUsedTp2: secondary?.label || "",
+  };
+}
+
 export function buildCandidate(symbol, ticker, k15, k1, marketContext) {
   const m15 = radarFeatures(k15);
   const h1 = radarFeatures(k1);
@@ -248,6 +408,16 @@ export function buildCandidate(symbol, ticker, k15, k1, marketContext) {
   let stopPct = Math.abs(currentPrice - stop) / currentPrice;
   if (stopPct > 0.028) stop = currentPrice * (1 - direction * 0.028);
   if (stopPct < 0.006) stop = currentPrice * (1 - direction * 0.006);
+
+  const barriers = structuralBarriers(k15, k1, [], side, currentPrice, m15.atr);
+  const targets = deriveStagedTargets(
+    side,
+    currentPrice,
+    Math.abs(currentPrice - stop),
+    barriers,
+  );
+  if (targets.blockingBarrier) return null;
+
   return {
     symbol,
     side,
@@ -262,9 +432,14 @@ export function buildCandidate(symbol, ticker, k15, k1, marketContext) {
     entryHigh: currentPrice + zoneHalf,
     entry: currentPrice,
     stop,
-    tp1: currentPrice * (1 + direction * 0.01),
-    tp2: currentPrice * (1 + direction * 0.02),
-    tp3: currentPrice * (1 + direction * 0.03),
+    tp1: targets.tp1,
+    tp2: targets.tp2,
+    tp3: targets.tp3,
+    targetBasis: {
+      tp1: targets.barrierUsedTp1 || "Standart R planı",
+      tp2: targets.barrierUsedTp2 || "Standart R planı",
+    },
+    barriers,
     atrPct: m15.atrPct * 100,
     volumeRatio: m15.volRatio,
     regime: regime.regime,
@@ -330,6 +505,29 @@ export function enrichCandidate(candidate, k4, premium, oiHistory, taker) {
   if (long ? flowRatio >= 1.04 : flowRatio <= 0.96) candidate.score += 0.65;
   if (long ? flowRatio < 0.88 : flowRatio > 1.14) candidate.score -= 0.75;
   if (candidate.volumeRatio < 0.55 || candidate.score < 9.5) return null;
+
+  const weeklyLevels = utcMarketLevels([], [], k4);
+  const direction = long ? 1 : -1;
+  const weeklyBarriers = [];
+  const addWeekly = (price, label, baseScore) => {
+    price = Number(price);
+    if (!price || direction * (price - candidate.entry) <= 0) return;
+    weeklyBarriers.push({ price, label, score: baseScore });
+  };
+  addWeekly(weeklyLevels.weeklyOpen, "Haftalık açılış", 3);
+  addWeekly(weeklyLevels.previousWeek?.high, "Önceki hafta yüksek", 4);
+  addWeekly(weeklyLevels.previousWeek?.low, "Önceki hafta düşük", 4);
+
+  const mergedBarriers = [...(candidate.barriers || []), ...weeklyBarriers];
+  const risk = Math.abs(candidate.entry - candidate.stop);
+  const targets = deriveStagedTargets(
+    candidate.side,
+    candidate.entry,
+    risk,
+    mergedBarriers,
+  );
+  if (targets.blockingBarrier) return null;
+
   return {
     ...candidate,
     funding,
@@ -337,6 +535,14 @@ export function enrichCandidate(candidate, k4, premium, oiHistory, taker) {
     flowRatio,
     dataQuality: "COMPLETE",
     ruleSet: "V13_EVIDENCE_1",
+    barriers: mergedBarriers,
+    tp1: targets.tp1,
+    tp2: targets.tp2,
+    tp3: targets.tp3,
+    targetBasis: {
+      tp1: targets.barrierUsedTp1 || candidate.targetBasis?.tp1 || "Standart R planı",
+      tp2: targets.barrierUsedTp2 || candidate.targetBasis?.tp2 || "Standart R planı",
+    },
   };
 }
 
@@ -368,13 +574,27 @@ export function verifyBook(candidate, book, receivedAt = Date.now()) {
   const stopPct = Math.abs(fill - stop) / fill;
   if (stopPct > 0.028) stop = fill * (1 - direction * 0.028);
   if (stopPct < 0.006) stop = fill * (1 - direction * 0.006);
+
+  const risk = Math.abs(fill - stop);
+  const targets = deriveStagedTargets(
+    candidate.side,
+    fill,
+    risk,
+    candidate.barriers,
+  );
+  if (targets.blockingBarrier) return null;
+
   return {
     ...candidate,
     entry: fill,
     stop,
-    tp1: fill * (1 + direction * 0.01),
-    tp2: fill * (1 + direction * 0.02),
-    tp3: fill * (1 + direction * 0.03),
+    tp1: targets.tp1,
+    tp2: targets.tp2,
+    tp3: targets.tp3,
+    targetBasis: {
+      tp1: targets.barrierUsedTp1 || candidate.targetBasis?.tp1 || "Standart R planı",
+      tp2: targets.barrierUsedTp2 || candidate.targetBasis?.tp2 || "Standart R planı",
+    },
     bidAtSignal: bid,
     askAtSignal: ask,
     spreadPct: (ask / bid - 1) * 100,
