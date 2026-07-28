@@ -348,6 +348,23 @@ export function deriveStagedTargets(side, entry, risk, barriers) {
   };
 }
 
+export function bosQuality(k15, m15, side) {
+  const level = side === "LONG" ? m15.recentHigh : m15.recentLow;
+  const broken = side === "LONG" ? m15.price > level : m15.price < level;
+  if (!broken) return { active: false, score: 0, level, label: "" };
+  const importance = levelImportance(k15, level, m15.atr);
+  return {
+    active: true,
+    score: importance.score,
+    level,
+    touches: importance.touches,
+    label:
+      side === "LONG"
+        ? "15D yapı kırılımı (önceki tepe)"
+        : "15D yapı kırılımı (önceki dip)",
+  };
+}
+
 export function buildCandidate(symbol, ticker, k15, k1, marketContext) {
   const m15 = radarFeatures(k15);
   const h1 = radarFeatures(k1);
@@ -387,6 +404,11 @@ export function buildCandidate(symbol, ticker, k15, k1, marketContext) {
     (direction > 0 && exhausted.longBlocked) ||
     (direction < 0 && exhausted.shortBlocked)
   ) return null;
+
+  const bos = bosQuality(k15, m15, side);
+  if (!bos.active || bos.score < 2) return null;
+  score += Math.min(2, bos.score * 0.3);
+
   if (marketContext?.valid && marketContext.side) {
     score += marketContext.side === direction ? 0.5 : -1.25;
   }
@@ -440,6 +462,7 @@ export function buildCandidate(symbol, ticker, k15, k1, marketContext) {
       tp2: targets.barrierUsedTp2 || "Standart R planı",
     },
     barriers,
+    bos,
     atrPct: m15.atrPct * 100,
     volumeRatio: m15.volRatio,
     regime: regime.regime,
@@ -491,8 +514,11 @@ export function enrichCandidate(candidate, k4, premium, oiHistory, taker) {
     (long && candidate.chg24 > 20 && oiChg < -10) ||
     (!long && candidate.chg24 < -20 && oiChg < -10)
   ) return null;
-  if (oiChg > 0.5) candidate.score += 0.4;
-  if (oiChg < -2) candidate.score -= 0.35;
+  // Aday zaten bosQuality ile gerçek bir yapı kırılımı taşıyor (buildCandidate).
+  // Momentum-expansion tanımı gereği bu kırılım yeni pozisyon katılımıyla (OI artışı)
+  // desteklenmiyorsa hareket squeeze/pozisyon-kapanışı kaynaklı sayılır ve reddedilir.
+  if (!(oiChg >= 0.5)) return null;
+  candidate.score += Math.min(0.6, (oiChg - 0.5) * 0.2);
   const recentFlow = taker.slice(-4);
   const buys = recentFlow.reduce((sum, row) => sum + Number(row.buyVol || 0), 0);
   const sells = recentFlow.reduce(
