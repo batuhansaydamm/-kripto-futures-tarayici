@@ -1,4 +1,5 @@
 import { BinanceClient } from "./binance.js";
+import { StreamingMarketClient } from "./market-stream.js";
 import { TradingBot } from "./bot.js";
 import { config, validateConfig } from "./config.js";
 import { startServer } from "./server.js";
@@ -12,20 +13,25 @@ const client = new BinanceClient({
   apiKey: config.apiKey,
   apiSecret: config.apiSecret,
 });
-const marketClient = new BinanceClient({
+const marketClient = new StreamingMarketClient({
   baseUrl: config.marketDataBaseUrl,
+  streamUrl: config.marketStreamUrl,
   minRequestIntervalMs: config.marketRequestIntervalMs,
+  cachePath: config.marketCachePath,
 });
+await marketClient.loadCache();
+marketClient.start();
 const bot = new TradingBot({ client, marketClient, store, config });
 startServer({ bot, store, config });
 
 console.log(
   JSON.stringify({
     event: "BOOT",
-    engine: "V13.2_STRUCTURE_EXECUTION",
+    engine: "V13.4_STREAM_EXECUTION",
     dryRun: config.dryRun,
     endpoint: config.baseUrl,
     marketDataEndpoint: config.marketDataBaseUrl,
+    marketStreamEndpoint: config.marketStreamUrl,
     port: config.port,
     limits: {
       marginUsdt: config.marginUsdt,
@@ -61,4 +67,5 @@ const cycle = async () => {
 
 setInterval(cycle, config.scanIntervalMs).unref();
 setInterval(() => bot.reconcile().catch(() => {}), 60_000).unref();
+setInterval(() => marketClient.saveCache().catch(() => {}), 60_000).unref();
 setTimeout(cycle, 2_000).unref();
