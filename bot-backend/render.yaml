@@ -30,6 +30,12 @@ services:
         value: "100"
       - key: SCAN_INTERVAL_MS
         value: "900000"
+      - key: MARKET_STREAM_URL
+        value: wss://fstream.binance.com/ws
+      - key: MARKET_REQUEST_INTERVAL_MS
+        value: "1000"
+      - key: MARKET_CACHE_PATH
+        value: /app/data/market-cache.json
       - key: DASHBOARD_TOKEN
         sync: false
       - key: BINANCE_API_KEY
