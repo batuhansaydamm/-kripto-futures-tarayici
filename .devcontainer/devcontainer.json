@@ -1,0 +1,31 @@
+{
+  "name": "V13.3 Binance Testnet Bot",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "V13.3 Bot Paneli",
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
+    }
+  },
+  "postCreateCommand": "npm --prefix bot-backend install && npm --prefix bot-backend test",
+  "postStartCommand": "nohup bash .devcontainer/start-bot.sh >/tmp/v13-bot.log 2>&1 &",
+  "remoteEnv": {
+    "BINANCE_BASE_URL": "https://testnet.binancefuture.com",
+    "MARKET_DATA_BASE_URL": "https://fapi.binance.com",
+    "MARKET_REQUEST_INTERVAL_MS": "750",
+    "DRY_RUN": "false",
+    "BOT_ENABLED": "false",
+    "MANAGEMENT_ENABLED": "true",
+    "SCAN_INTERVAL_MS": "900000",
+    "MARGIN_USDT": "50",
+    "LEVERAGE": "10",
+    "MAX_TOTAL_TRADES": "5",
+    "MAX_OPEN_POSITIONS": "1",
+    "MAX_CONSECUTIVE_LOSSES": "2",
+    "MAX_DAILY_LOSS_USDT": "100",
+    "STATE_PATH": "/workspaces/.v13-state/state.json",
+    "PORT": "3000"
+  }
+}
