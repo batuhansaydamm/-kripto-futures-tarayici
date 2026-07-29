@@ -1,10 +1,10 @@
 {
-  "name": "V13.3 Binance Testnet Bot",
+  "name": "V13.4 Binance Testnet Bot",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
-      "label": "V13.3 Bot Paneli",
+      "label": "V13.4 Bot Paneli",
       "onAutoForward": "openBrowser",
       "visibility": "private"
     }
@@ -14,7 +14,9 @@
   "remoteEnv": {
     "BINANCE_BASE_URL": "https://testnet.binancefuture.com",
     "MARKET_DATA_BASE_URL": "https://fapi.binance.com",
-    "MARKET_REQUEST_INTERVAL_MS": "750",
+    "MARKET_STREAM_URL": "wss://fstream.binance.com/ws",
+    "MARKET_REQUEST_INTERVAL_MS": "1000",
+    "MARKET_CACHE_PATH": "/workspaces/.v13-state/market-cache.json",
     "DRY_RUN": "false",
     "BOT_ENABLED": "false",
     "MANAGEMENT_ENABLED": "true",
