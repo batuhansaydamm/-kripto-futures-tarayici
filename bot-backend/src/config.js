@@ -12,6 +12,8 @@ export const config = Object.freeze({
     process.env.BINANCE_BASE_URL || "https://testnet.binancefuture.com",
   marketDataBaseUrl:
     process.env.MARKET_DATA_BASE_URL || "https://fapi.binance.com",
+  marketStreamUrl:
+    process.env.MARKET_STREAM_URL || "wss://fstream.binance.com/ws",
   apiKey: process.env.BINANCE_API_KEY || "",
   apiSecret: process.env.BINANCE_API_SECRET || "",
   dashboardToken: process.env.DASHBOARD_TOKEN || "",
@@ -28,6 +30,8 @@ export const config = Object.freeze({
   maxConsecutiveLosses: number("MAX_CONSECUTIVE_LOSSES", 2),
   maxDailyLossUsdt: number("MAX_DAILY_LOSS_USDT", 100),
   statePath: process.env.STATE_PATH || "./data/state.json",
+  marketCachePath:
+    process.env.MARKET_CACHE_PATH || "./data/market-cache.json",
 });
 
 export function validateConfig() {
@@ -44,6 +48,15 @@ export function validateConfig() {
   ) {
     throw new Error(
       "Piyasa verisi yalnız resmi Binance Futures production/testnet endpoint'inden alınabilir.",
+    );
+  }
+  const streamUrl = new URL(config.marketStreamUrl);
+  if (
+    streamUrl.protocol !== "wss:" ||
+    streamUrl.hostname !== "fstream.binance.com"
+  ) {
+    throw new Error(
+      "Canlı piyasa akışı yalnız resmi Binance Futures WebSocket adresinden alınabilir.",
     );
   }
   if (config.leverage !== 10)

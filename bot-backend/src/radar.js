@@ -724,6 +724,7 @@ export async function scanBestCandidate(client) {
       .map((symbol) => symbol.symbol),
   );
   const top = selectScanUniverse(tickers, allowed);
+  client.setUniverse?.(top.map((ticker) => ticker.symbol));
   const marketContext = btcContext(btc15, btc1);
   const preliminary = (
     await mapLimit(top, 4, async (ticker) => {

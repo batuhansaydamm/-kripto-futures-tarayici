@@ -1,8 +1,11 @@
-# V13.2 Binance Futures Testnet Bot
+# V13.4 Binance Futures Testnet Bot
 
-Bu servis V13.2 Fırsat Radarı kurallarını gerçek Binance USDⓈ-M herkese açık piyasa verisiyle sunucu tarafında çalıştırır ve **yalnız Binance USDⓈ-M Futures Testnet** için emir zinciri hazırlar.
+Bu servis V13.3 işlem mantığını gerçek Binance USDⓈ-M herkese açık piyasa
+akışıyla sunucu tarafında çalıştırır ve **yalnız Binance USDⓈ-M Futures
+Testnet** için emir zinciri hazırlar. V13.4 sürüm adı, strateji değişikliğini
+değil WebSocket tabanlı tarama altyapısını ifade eder.
 
-Tarama evreni tek toplu 24 saat ticker çağrısından oluşturulur: likidite
+Tarama evreni canlı `!ticker@arr` WebSocket akışından oluşturulur: likidite
 filtresini geçen **15 en çok yükselen + 10 en çok düşen + 5 en yüksek hacimli**
 USDT perpetual sözleşme seçilir. Gruplar arasında çakışan semboller yalnız bir
 kez taranır; benzersiz sembol sayısı bu nedenle en fazla 30 olabilir.
@@ -38,3 +41,14 @@ API anahtarlarını kaynak koda, GitHub'a veya sohbet içine yazmayın.
 - `PROTECTED`: Stop order ID sorgulanıp `NEW` durumu doğrulandı.
 
 Bot yalnız `PROTECTED` durumunu başarıyla açılmış ve korunmuş işlem kabul eder.
+
+## V13.4 canlı veri mimarisi
+
+- 24 saat ticker, mark/funding, bookTicker ve 15m/1h/4h mum güncellemeleri
+  resmi `wss://fstream.binance.com/ws` akışından gelir.
+- REST yalnız ilk mum geçmişini yüklemek, 15 dakikada bir OI/taker geçmişini
+  yenilemek ve Testnet emirlerini yönetmek için kullanılır.
+- Aktif tarama evreni değiştiğinde eski stream abonelikleri kapatılır; bağlantı
+  koparsa üstel gecikmeyle yeniden bağlanır ve abonelikler geri yüklenir.
+- HTTP 418/429 durumunda REST bekleme süresi korunur; WebSocket akışı çalışmaya
+  devam eder fakat eksik/zamanı geçmiş kanıtla yeni işlem açılmaz.
